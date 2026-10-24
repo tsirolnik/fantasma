@@ -15,7 +15,9 @@ orchestration code.
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
 
-![fantasma dashboard](docs/dashboard.png)
+![Fantasma interactive dashboard](docs/fantasma-dashboard.png)
+
+*The interactive web companion, shown in dry-run mode without model calls.*
 
 ## Start interactively
 
@@ -140,7 +142,7 @@ docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
 The install creates the `fantasma` command in your active environment. Run
 `fantasma --help`, `fantasma --version`, or simply `fantasma` to start
 an interactive session. `fantasma profiles inspect interactive` inspects a
-profile without model calls. The old `python main.py` entry point and `swarmhound` command still work.
+profile without model calls. The `python main.py` entry point also remains supported.
 
 This is a source installation; a PyPI release has not been published.
 
@@ -286,15 +288,3 @@ not replace an end-to-end run with your chosen models and environment.
 [MIT](LICENSE) © Yehonatan Tsirolnik
 
 MCP plugins: see [setup, IDA connection examples, and configuration reference](docs/mcp.md).
-
-## Migrating from SwarmHound
-
-The project and primary command are now **Fantasma**. Reinstall from the checkout
-with `python -m pip uninstall swarmhound` followed by `python -m pip install -e .`.
-The installation retains `swarmhound` as a CLI alias. Your existing profiles,
-`.env`, SQLite database and reports do not need to be moved.
-
-`FANTASMA_DB_PATH`, `FANTASMA_TOOL_NETWORK`, and `FANTASMA_TOOL_HOST_REWRITE`
-are the preferred names; their `SWARMHOUND_*` equivalents remain fallback aliases.
-The database still defaults to `./data/memory.db`. Benchmark Docker project/network
-identifiers retain their old names so existing lab resources remain manageable.

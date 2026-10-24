@@ -104,9 +104,8 @@ The default interactive session uses the `scanner` role and waits for user promp
 It consumes methodology, mechanisms and interaction limits, and takes scope from
 `--targets` or `/scope`; it does not invoke the target provider. See [interactive](interactive.md).
 
-## Name compatibility
+## Runtime paths
 
-Fantasma retains the `swarmhound` command as an alias. Existing profiles and
-local data paths are unchanged. Prefer `FANTASMA_DB_PATH`,
-`FANTASMA_TOOL_NETWORK`, and `FANTASMA_TOOL_HOST_REWRITE`; the corresponding
-`SWARMHOUND_*` variables still work when the new names are unset.
+`FANTASMA_DB_PATH` selects the SQLite database (default `./data/memory.db`).
+`FANTASMA_TOOL_NETWORK` and `FANTASMA_TOOL_HOST_REWRITE` configure benchmark
+tool networking. Profiles, `.env`, and stored data remain in their existing locations.

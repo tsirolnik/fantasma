@@ -15,11 +15,11 @@
 #     target internally at http://bench-<name>:<container-port>. Nothing is
 #     exposed outside this host.
 
-name: swarmhound-bench
+name: fantasma-bench
 
 networks:
   benchnet:
-    name: swarmhound-benchnet
+    name: fantasma-benchnet
 
 services:
   # OWASP Juice Shop — modern Node/Angular SPA, OWASP Top 10 across the board.

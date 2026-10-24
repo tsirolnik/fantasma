@@ -235,7 +235,7 @@ def build_command(target: dict, args: argparse.Namespace) -> list[str]:
     return cmd
 
 
-NETWORK_NAME = "swarmhound-benchnet"  # created by the compose file
+NETWORK_NAME = "fantasma-benchnet"  # created by the compose file
 
 
 def benchmark_env(target: dict) -> dict:
