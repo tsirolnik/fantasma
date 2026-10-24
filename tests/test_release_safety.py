@@ -153,7 +153,7 @@ class ContainerCleanupTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result[0], 0 if outcome == 'success' else -1)
             args = spawn.call_args_list[0].args
             name = args[args.index('--name') + 1]
-            self.assertTrue(name.startswith('swarmhound-tool-'))
+            self.assertTrue(name.startswith('fantasma-tool-'))
             self.assertEqual(spawn.call_args_list[1].args[1:], ('rm', '--force', name))
             if outcome != 'success':
                 proc.kill.assert_called_once()

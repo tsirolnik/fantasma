@@ -1,6 +1,6 @@
 # Interactive pentester (default profile)
 
-Running `python main.py` or `python main.py full` opens the terminal session
+Running `fantasma` or `fantasma full` opens the terminal session
 configured by [profiles/interactive.toml](../profiles/interactive.toml). It waits
 for a request; startup does not launch discovery, scanning, a Director, or a lab
 pipeline. Lab is opt-in with `--profile lab`.
@@ -10,7 +10,7 @@ then configure your provider. The shipped profile selects Claude for the worker;
 select another configured tool-capable provider explicitly if desired:
 
 ```bash
-python main.py full --profile interactive --worker-llm openai --budget 1 --no-browser
+fantasma full --profile interactive --worker-llm openai --budget 1 --no-browser
 ```
 
 The profile uses `topology.mode = "pentester"` with `interaction.mode = "terminal"`.
@@ -90,7 +90,7 @@ Implementation: [interactive session](../agents/interactive.py),
 
 ## Web companion
 
-Run `python main.py full --web` to use an authenticated browser view alongside
+Run `fantasma full --web` to use an authenticated browser view alongside
 the terminal. Both operate on the same session: requests, redirects, `/scope`,
 `/status`, and `/stop` work from either surface. The browser displays responses,
 tool-start messages, spend and findings count. Close the session with `/quit`

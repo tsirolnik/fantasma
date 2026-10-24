@@ -17,18 +17,18 @@ DEFAULT_TIMEOUT = 300
 # Bridge networking separates container localhost from host localhost, but is
 # NOT an egress firewall. Host/LAN addresses may still be reachable.
 # Benchmarks opt into a network containing the local target containers.
-CONTAINER_NETWORK = os.environ.get("SWARMHOUND_TOOL_NETWORK", "bridge")
+CONTAINER_NETWORK = os.environ.get("FANTASMA_TOOL_NETWORK", os.environ.get("SWARMHOUND_TOOL_NETWORK", "bridge"))
 
 
 def _apply_host_rewrite(args: list[str]) -> list[str]:
-    """Rewrite host:port tokens in tool args, when SWARMHOUND_TOOL_HOST_REWRITE
+    """Rewrite host:port tokens in tool args, when FANTASMA_TOOL_HOST_REWRITE
     is set (benchmark only). Lets agents use one URL (e.g. localhost:3000) while
     sandboxed tools transparently hit the target's in-network container name.
 
     Format: "from1=to1,from2=to2" e.g. "localhost:3000=bench-juice-shop:3000".
     No-op when the env var is unset, so normal runs are unaffected.
     """
-    mapping = os.environ.get("SWARMHOUND_TOOL_HOST_REWRITE", "")
+    mapping = os.environ.get("FANTASMA_TOOL_HOST_REWRITE", os.environ.get("SWARMHOUND_TOOL_HOST_REWRITE", ""))
     if not mapping:
         return args
     pairs = [p.split("=", 1) for p in mapping.split(",") if "=" in p]
@@ -63,7 +63,7 @@ async def run_container(
         Tuple of (exit_code, stdout, stderr)
     """
     args = _apply_host_rewrite(args)
-    container_name = "swarmhound-tool-" + uuid4().hex
+    container_name = "fantasma-tool-" + uuid4().hex
     cmd = [
         DOCKER_BIN, "run", "--rm", "--name", container_name,
         # Bridge provides internet access; it does not block host/LAN IPs

@@ -22,7 +22,7 @@ def documents():
     cli = ['# CLI reference', '', 'Generated from [main.py](../../main.py) and [commands/](../../commands/).',
            'Regenerate with `python scripts/generate_reference.py`. Profile and runtime fallback',
            'rules are in [configuration](../configuration.md). Global flags precede the command.', '',
-           '```bash', 'python main.py --verbose full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN',
+           '```bash', 'fantasma --verbose full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN',
            '```', '', '## Global options', '', '```text', parser.format_help().strip(), '```', '']
     for action in parser._actions:
         if isinstance(action, argparse._SubParsersAction):
@@ -30,8 +30,8 @@ def documents():
                 source = Path(inspect.getfile(REGISTRY[name].handler)).relative_to(ROOT)
                 cli += [f'## {name}', '', f'Source: [{source}](../../{source}).', '',
                         '```text', sub.format_help().strip(), '```', '']
-    cli += ['## Offline profile tools', '', '```bash', 'python -m profiles mechanisms',
-            'python -m profiles inspect NAME_OR_PATH', '```', '',
+    cli += ['## Offline profile tools', '', '```bash', 'fantasma profiles mechanisms',
+            'fantasma profiles inspect NAME_OR_PATH', '```', '',
             'These import trusted extensions but do not start a run. See [mechanisms](../mechanisms.md).', '']
     settings = ['# Environment/settings reference', '',
                 'Generated from [Settings](../../config.py) declarations without reading `.env`.',

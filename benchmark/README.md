@@ -1,6 +1,6 @@
-# swarmhound benchmark
+# fantasma benchmark
 
-A reproducible benchmark that measures how well swarmhound autonomously finds
+A reproducible benchmark that measures how well fantasma autonomously finds
 vulnerabilities, against a lab of **intentionally-vulnerable, legal-to-attack**
 targets.
 
@@ -28,7 +28,7 @@ agent — it gets credit for finding an XSS even if it labelled it
 ## Requirements
 
 - Docker (for the targets)
-- swarmhound installed and configured (`.env` with a working LLM provider)
+- fantasma installed and configured (`.env` with a working LLM provider)
 
 ## First run: local Juice Shop
 
@@ -106,12 +106,12 @@ findings, then stops the target. Results are written to
 
 | Flag | Meaning |
 |---|---|
-| `--dry-run` | Print the swarmhound command and exit; spend nothing. |
+| `--dry-run` | Print the fantasma command and exit; spend nothing. |
 | `--budget N` | Per-target USD budget cap. |
 | `--timeout N` | Per-target run timeout in seconds. |
 | `--no-lifecycle` | Targets are already up; don't start/stop them. |
 | `--keep-up` | Leave targets running after the run (for demos). |
-| `--extra "..."` | Extra args appended to the swarmhound command. |
+| `--extra "..."` | Extra args appended to the fantasma command. |
 
 ## How targets are scoped
 
@@ -126,4 +126,4 @@ runs using the same database.
 
 - On Apple Silicon, VAmPI runs under amd64 emulation (slower but works).
 - The vulnerability-class taxonomy in `targets.json` is intentionally broader
-  than swarmhound's internal `VulnType` enum — see the project's product notes.
+  than fantasma's internal `VulnType` enum — see the project's product notes.

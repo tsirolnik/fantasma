@@ -1,7 +1,7 @@
 """Harmless local MCP server for verifying the integration."""
 from mcp.server.fastmcp import FastMCP
 
-server = FastMCP("SwarmHound demo")
+server = FastMCP("Fantasma demo")
 
 
 @server.tool()

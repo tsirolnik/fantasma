@@ -16,4 +16,5 @@ from . import (  # noqa: F401
     record_outcome,
     validate,
     graph_sync,
+    profiles,
 )

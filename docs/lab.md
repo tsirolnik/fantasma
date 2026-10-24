@@ -4,8 +4,8 @@ Lab is the sequential workflow shipped in [profiles/lab.toml](../profiles/lab.to
 Select it like any other profile:
 
 ```bash
-python -m profiles inspect lab
-python main.py full --profile lab --targets YOUR_AUTHORIZED_DOMAIN \
+fantasma profiles inspect lab
+fantasma full --profile lab --targets YOUR_AUTHORIZED_DOMAIN \
   --director-llm claude --worker-llm claude --analyzer-llm claude --budget 1
 ```
 

@@ -73,9 +73,15 @@ def setup_logging(verbose: bool = False):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="ai-bugbounty",
-        description="AI-powered bug bounty automation agent",
+        prog="fantasma",
+        description="Configurable AI-assisted pentesting and security research",
     )
+    from importlib.metadata import PackageNotFoundError, version
+    try:
+        installed_version = version("fantasma")
+    except PackageNotFoundError:
+        installed_version = "development (not installed)"
+    parser.add_argument("--version", action="version", version=f"%(prog)s {installed_version}")
     parser.add_argument("--llm", choices=["claude", "gemini", "ollama", "openai", "vertex"], default=None,
                         help="LLM provider to use")
     parser.add_argument("--output-dir", default=None, help="Output directory for reports")
@@ -134,7 +140,7 @@ async def async_main(args: argparse.Namespace) -> None:
     if overrides:
         override_settings(**overrides)
 
-    orchestrator = None if args.command == "full" else Orchestrator(llm_name=args.llm)
+    orchestrator = None if args.command in ("full", "profiles") else Orchestrator(llm_name=args.llm)
 
     command = REGISTRY[args.command]
     await command.handler(args, orchestrator)
@@ -143,7 +149,8 @@ async def async_main(args: argparse.Namespace) -> None:
 def main():
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:] or ["full"])
-    setup_logging(args.verbose)
+    if args.command != "profiles":
+        setup_logging(args.verbose)
 
     try:
         asyncio.run(async_main(args))
@@ -164,7 +171,7 @@ def main():
                     f"{latest['domains']} domains, {latest['findings']} findings)."
                 )
                 resume_hint = f"--resume-scan {name}" if name else "--resume"
-                print(f"Resume with: python main.py full {resume_hint}")
+                print(f"Resume with: fantasma full {resume_hint}")
             else:
                 print("\nAborted.")
         except Exception:

@@ -1,5 +1,5 @@
 {
-  "_comment": "Ground-truth manifest for the swarmhound benchmark. Each target lists the vulnerability CLASSES known to be present (these apps are documented, intentionally-vulnerable teaching targets). Scoring is class-level: a finding counts as a hit if its vuln_type OR its title/description/evidence text matches any alias for a ground-truth class. This is deliberately generous on taxonomy (the agent may label an XSS as 'misconfiguration') but strict on target+class, which is the honest way to score an autonomous agent.",
+  "_comment": "Ground-truth manifest for the fantasma benchmark. Each target lists the vulnerability CLASSES known to be present (these apps are documented, intentionally-vulnerable teaching targets). Scoring is class-level: a finding counts as a hit if its vuln_type OR its title/description/evidence text matches any alias for a ground-truth class. This is deliberately generous on taxonomy (the agent may label an XSS as 'misconfiguration') but strict on target+class, which is the honest way to score an autonomous agent.",
   "vuln_classes": {
     "sql_injection": [
       "sql injection",

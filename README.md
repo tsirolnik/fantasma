@@ -1,8 +1,8 @@
-# swarmhound
+# Fantasma
 
 **A composable multi-agent framework for authorized security research.**
 
-swarmhound runs LLM-driven investigators against a shared scope. A run can use
+fantasma runs LLM-driven investigators against a shared scope. A run can use
 one team or several teams, different models by role, configurable scoring, and
 optional incentive mechanisms. Workers choose tools from the evidence they
 collect; a Director reviews progress and can redirect them.
@@ -15,11 +15,11 @@ orchestration code.
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
 
-![swarmhound dashboard](docs/dashboard.png)
+![fantasma dashboard](docs/dashboard.png)
 
 ## Start interactively
 
-After [installation](#install), run `python main.py` to open the default
+After [installation](#install), run `fantasma` to open the default
 [interactive pentester](docs/interactive.md). Set `/scope`, ask a question or give
 an investigation task, and use `/stop` to cancel active work. It waits for your
 request and retains conversation context; it does not launch an unattended scan.
@@ -34,7 +34,8 @@ explicit CLI options override the corresponding profile options.
 | Target provider | `[target]` | Explicit targets, program discovery, or a custom source |
 | Methodology | `[methodology]` | Worker system instructions and optional turn template |
 | Topology | `[topology]` | Engine, teams, and workers per team |
-| Interaction | `[interaction] mode` | Terminal, dashboard, or batch interface, independent of topology |
+| Interaction | `[interaction] mode` | Terminal or batch interaction, independent of topology |
+| Dashboard | `[dashboard] enabled` or `--web` | Optional web companion alongside interaction |
 | Models | `[llm.director]`, `[llm.default_worker]`, `[llm.overrides.*]` | Provider and model by role or agent |
 | Scoring | `[scoring]` | Finding rewards, rejection/duplicate penalties, termination threshold |
 | Coordination | `[coordination]` | Shared/exclusive claims, review cadence, cross-team sharing |
@@ -126,15 +127,22 @@ Requirements: Python 3.13+, Docker with Compose, and a configured LLM provider.
 Playwright supplies the browser used by browser tools.
 
 ```bash
-git clone https://github.com/tsirolnik/swarmhound.git
-cd swarmhound
+git clone https://github.com/tsirolnik/fantasma.git
+cd fantasma
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
 playwright install chromium
 cp .env.example .env
 docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
 ```
+
+The install creates the `fantasma` command in your active environment. Run
+`fantasma --help`, `fantasma --version`, or simply `fantasma` to start
+an interactive session. `fantasma profiles inspect interactive` inspects a
+profile without model calls. The old `python main.py` entry point and `swarmhound` command still work.
+
+This is a source installation; a PyPI release has not been published.
 
 Edit `.env` before running. The example below uses Claude for all agent roles:
 set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.
@@ -184,7 +192,7 @@ See the [benchmark guide](benchmark/README.md) for details and cleanup.
 For your own authorized target, replace the example domain below:
 
 ```bash
-python main.py full --profile bugbounty \
+fantasma full --profile bugbounty \
     --targets your-authorized-target.example \
     --director-llm claude --worker-llm claude --analyzer-llm claude \
     --budget 8 --web
@@ -204,11 +212,11 @@ Bearer authentication; WebSockets also require a matching Origin.
 Other entry points:
 
 ```bash
-python main.py --help
-python main.py full --help
-python main.py full --list-checkpoints
-python main.py costs
-python main.py history
+fantasma --help
+fantasma full --help
+fantasma full --list-checkpoints
+fantasma costs
+fantasma history
 ```
 
 Saved swarm checkpoints can be selected with `full --resume` or
@@ -254,8 +262,8 @@ limit a mechanism to selected events, workers, targets or severities. Inspect a
 trusted profile before running it:
 
 ```bash
-python -m profiles mechanisms
-python -m profiles inspect examples/mechanisms/conditional.toml
+fantasma profiles mechanisms
+fantasma profiles inspect examples/mechanisms/conditional.toml
 ```
 
 The [configuration reference](docs/configuration.md) documents defaults,
@@ -278,3 +286,15 @@ not replace an end-to-end run with your chosen models and environment.
 [MIT](LICENSE) © Yehonatan Tsirolnik
 
 MCP plugins: see [setup, IDA connection examples, and configuration reference](docs/mcp.md).
+
+## Migrating from SwarmHound
+
+The project and primary command are now **Fantasma**. Reinstall from the checkout
+with `python -m pip uninstall swarmhound` followed by `python -m pip install -e .`.
+The installation retains `swarmhound` as a CLI alias. Your existing profiles,
+`.env`, SQLite database and reports do not need to be moved.
+
+`FANTASMA_DB_PATH`, `FANTASMA_TOOL_NETWORK`, and `FANTASMA_TOOL_HOST_REWRITE`
+are the preferred names; their `SWARMHOUND_*` equivalents remain fallback aliases.
+The database still defaults to `./data/memory.db`. Benchmark Docker project/network
+identifiers retain their old names so existing lab resources remain manageable.

@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 def _default_db_path() -> Path:
-    # SWARMHOUND_DB_PATH lets a single run (or an isolated experiment trial) use
+    # FANTASMA_DB_PATH lets a single run (or an isolated experiment trial) use
     # its own database instead of the shared ./data/memory.db — so findings can
     # never leak between concurrent or back-to-back runs.
-    return Path(os.environ.get("SWARMHOUND_DB_PATH") or "./data/memory.db")
+    return Path(os.environ.get("FANTASMA_DB_PATH") or os.environ.get("SWARMHOUND_DB_PATH") or "./data/memory.db")
 
 
 DEFAULT_DB_PATH = _default_db_path()

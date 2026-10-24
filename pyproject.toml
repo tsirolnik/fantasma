@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fantasma"
+version = "0.1.0"
+description = "A configurable framework for AI-assisted security research"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+dynamic = ["dependencies"]
+
+[project.urls]
+Repository = "https://github.com/tsirolnik/fantasma"
+Documentation = "https://github.com/tsirolnik/fantasma/tree/main/docs"
+
+[project.scripts]
+fantasma = "main:main"
+swarmhound = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "config"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*", "commands*", "cost*", "fuzzing*", "llm*", "memory*", "models*", "platforms*", "profiles*", "scanners*", "utils*", "web*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+profiles = ["*.toml"]
+web = ["*.html"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}

@@ -108,13 +108,13 @@ execute once per mechanism name across team memories; order can affect scores.
 | --- | --- | --- |
 | SharedMemory | Feed, claims, finding objects, score events | In process, one per team |
 | Mechanism instance | Custom counters/timers/sets | In process; not serialized by checkpoint capture |
-| SQLite | Programs, findings, scans, costs, key/value state | `./data/memory.db`, or `SWARMHOUND_DB_PATH` |
+| SQLite | Programs, findings, scans, costs, key/value state | `./data/memory.db`, or `FANTASMA_DB_PATH` |
 | Checkpoints | Programs/domains, one shared-memory snapshot, session, spent cost and phase | SQLite key/value entries `checkpoint:<scan_id>` and `checkpoint:latest` |
 | FalkorDB | Optional relationships and scan context | Configured graph service; can be disabled |
 | Logs | Run, web and LLM wire output | `data/logs/` |
 | Reports | Generated Markdown | `OUTPUT_DIR`, default `./output` |
 
-`SWARMHOUND_DB_PATH` is read directly by [memory/store.py](../../memory/store.py),
+`FANTASMA_DB_PATH` is read directly by [memory/store.py](../../memory/store.py),
 so it is not a `Settings` field in the generated environment table. Export it in
 the process environment when isolating runs.
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-swarmhound benchmark runner.
+fantasma benchmark runner.
 
-Brings up an intentionally-vulnerable target, runs swarmhound against it, then
+Brings up an intentionally-vulnerable target, runs fantasma against it, then
 scores the findings against a ground-truth manifest. Reports recall (how many
 known vuln classes were found), precision (how many findings map to a real
 class vs. noise), cost, and wall-clock time.
@@ -11,7 +11,7 @@ Targets are handled ONE AT A TIME so findings attribute cleanly by time window.
 
 Usage
 -----
-    # dry run — print the exact swarmhound command, spend nothing
+    # dry run — print the exact fantasma command, spend nothing
     python benchmark/run_benchmark.py --targets juice-shop --dry-run
 
     # real run against Claude
@@ -108,7 +108,7 @@ def score_target(findings: list[dict], ground_truth: list[str], vuln_classes: di
 
 
 # --------------------------------------------------------------------------- #
-# DB access (read-only; findings/cost written by the swarmhound run)
+# DB access (read-only; findings/cost written by the fantasma run)
 # --------------------------------------------------------------------------- #
 def _connect_ro(db_path: "Path | None" = None) -> sqlite3.Connection:
     conn = sqlite3.connect(f"file:{db_path or DB_PATH}?mode=ro", uri=True)
@@ -239,7 +239,7 @@ NETWORK_NAME = "swarmhound-benchnet"  # created by the compose file
 
 
 def benchmark_env(target: dict) -> dict:
-    """Env for the swarmhound subprocess: join the sandboxed tools to the shared
+    """Env for the fantasma subprocess: join the sandboxed tools to the shared
     bench network and rewrite localhost:PORT -> the target's container name."""
     port = target["host_url"].rsplit(":", 1)[-1]
     sh = target["sandbox_host"]          # e.g. bench-juice-shop:3000
@@ -249,8 +249,8 @@ def benchmark_env(target: dict) -> dict:
         f"localhost={sh_host}", f"127.0.0.1={sh_host}", f"host.docker.internal={sh_host}",
     ]
     env = dict(os.environ)
-    env["SWARMHOUND_TOOL_NETWORK"] = NETWORK_NAME
-    env["SWARMHOUND_TOOL_HOST_REWRITE"] = ",".join(pairs)
+    env["FANTASMA_TOOL_NETWORK"] = NETWORK_NAME
+    env["FANTASMA_TOOL_HOST_REWRITE"] = ",".join(pairs)
     return env
 
 
@@ -306,7 +306,7 @@ def run_one(target: dict, args: argparse.Namespace, vuln_classes: dict) -> dict:
 # --------------------------------------------------------------------------- #
 def render_markdown(results: list[dict], meta: dict) -> str:
     lines = [
-        "# swarmhound benchmark results",
+        "# fantasma benchmark results",
         "",
         f"- **Run:** {meta['timestamp']}",
         f"- **Model config:** director=`{meta['director']}` worker=`{meta['worker']}` analyzer=`{meta['analyzer']}`",
@@ -346,7 +346,7 @@ def render_markdown(results: list[dict], meta: dict) -> str:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="swarmhound benchmark runner")
+    ap = argparse.ArgumentParser(description="fantasma benchmark runner")
     ap.add_argument("--targets", default="juice-shop",
                     help="comma-separated target names from targets.json (default: juice-shop)")
     ap.add_argument("--agents", type=int, default=3, help="agents per team (swarm-agents)")
@@ -361,7 +361,7 @@ def main() -> int:
     ap.add_argument("--director-llm", default=None)
     ap.add_argument("--worker-llm", default=None)
     ap.add_argument("--analyzer-llm", default=None)
-    ap.add_argument("--extra", default=None, help="extra args appended to the swarmhound command")
+    ap.add_argument("--extra", default=None, help="extra args appended to the fantasma command")
     ap.add_argument("--dry-run", action="store_true", help="print command, spend nothing")
     ap.add_argument("--no-lifecycle", action="store_true",
                     help="assume targets already running; don't up/down them")

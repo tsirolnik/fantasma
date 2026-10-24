@@ -18,8 +18,8 @@ Use [terminal-swarm.toml](../examples/profiles/terminal-swarm.toml) or
 [terminal-lab.toml](../examples/profiles/terminal-lab.toml) as complete examples:
 
 ```bash
-python -m profiles inspect examples/profiles/terminal-swarm.toml
-python main.py full --profile examples/profiles/terminal-swarm.toml --budget 1
+fantasma profiles inspect examples/profiles/terminal-swarm.toml
+fantasma full --profile examples/profiles/terminal-swarm.toml --budget 1
 ```
 
 In the console, set `/scope YOUR_AUTHORIZED_HOST`, then `/start`. The example uses

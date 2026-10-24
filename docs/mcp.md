@@ -1,6 +1,6 @@
 # MCP tool plugins
 
-Profiles can connect external Model Context Protocol servers, including an IDA MCP server. Their tools become callable tools in the agent's normal model/tool loop. No Python extension to SwarmHound is necessary.
+Profiles can connect external Model Context Protocol servers, including an IDA MCP server. Their tools become callable tools in the agent's normal model/tool loop. No Python extension to Fantasma is necessary.
 
 This is separate from the existing `mcp_list_tools` and `mcp_call_tool` research tools, which inspect a target's MCP endpoint on demand.
 
@@ -11,9 +11,9 @@ From the repository root:
 ```sh
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-python -m profiles inspect examples/mcp/profile.toml
-python main.py full --profile examples/mcp/profile.toml --no-browser
+pip install -e .
+fantasma profiles inspect examples/mcp/profile.toml
+fantasma full --profile examples/mcp/profile.toml --no-browser
 ```
 
 Configure your model provider as described in [Getting started](getting-started.md). At the prompt, ask: `Use the demo MCP add tool to add 2 and 3.` The demo tool only adds numbers. Profile inspection is offline; starting the session launches the configured MCP process. `--dry-run` skips MCP connections and model calls.
@@ -33,7 +33,7 @@ timeout = 60
 # tools = ["exact_name_from_your_server"]
 ```
 
-Start IDA and its MCP plugin according to that plugin's instructions, open the intended database, then start SwarmHound with the profile. Ask the agent to use the IDA tools to inspect the loaded database. SwarmHound does not install IDA, select a database, or start an HTTP server for you. For a legacy SSE endpoint, select `transport = "sse"` and supply its actual SSE URL.
+Start IDA and its MCP plugin according to that plugin's instructions, open the intended database, then start Fantasma with the profile. Ask the agent to use the IDA tools to inspect the loaded database. Fantasma does not install IDA, select a database, or start an HTTP server for you. For a legacy SSE endpoint, select `transport = "sse"` and supply its actual SSE URL.
 
 For a local stdio server:
 
@@ -76,7 +76,7 @@ Each `[[mcp.servers]]` accepts:
 | `tools` | Exact remote tool allowlist; omitted exposes all; `[]` exposes none |
 | `timeout` | Positive request/read timeout in seconds; default 60 |
 
-Unknown settings, duplicate server names, and unknown allowlisted tools fail instead of silently disappearing. All servers are required. Tool discovery follows pagination once at startup; restart to refresh changed tool catalogs. Names are exported as `mcp_<server>_<sanitized-tool>_<hash>` to prevent collisions and meet provider name limits. Descriptions retain the original names. Input JSON schemas are preserved and arguments bypass SwarmHound's built-in parameter-name normalization.
+Unknown settings, duplicate server names, and unknown allowlisted tools fail instead of silently disappearing. All servers are required. Tool discovery follows pagination once at startup; restart to refresh changed tool catalogs. Names are exported as `mcp_<server>_<sanitized-tool>_<hash>` to prevent collisions and meet provider name limits. Descriptions retain the original names. Input JSON schemas are preserved and arguments bypass Fantasma's built-in parameter-name normalization.
 
 ## Runtime behavior and boundaries
 

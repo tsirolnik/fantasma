@@ -41,3 +41,8 @@ docker/*.tar
 .DS_Store
 Thumbs.db
 =*
+
+# Python distribution build output
+build/
+dist/
+*.egg-info/

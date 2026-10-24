@@ -10,7 +10,7 @@ from utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "Mozilla/5.0 (compatible; SecurityResearchBot/1.0; +https://github.com/ai-bugbounty)"
+USER_AGENT = "Mozilla/5.0 (compatible; SecurityResearchBot/1.0; +https://github.com/tsirolnik/fantasma)"
 
 _rate_limiter: RateLimiter | None = None
 

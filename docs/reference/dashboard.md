@@ -7,7 +7,7 @@ Return to the [documentation index](../README.md).
 
 ## Start and authenticate
 
-Add `--web` to `python main.py full ...`. The default bind address is
+Add `--web` to `fantasma full ...`. The default bind address is
 `127.0.0.1:8080`; `--web-port` changes the port. Set `WEB_AUTH_TOKEN` for a reusable
 token, otherwise a fresh token is printed at startup. Login through the browser
 form, or supply `Authorization: Bearer TOKEN` to API calls.

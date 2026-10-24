@@ -606,7 +606,7 @@ class AgentPipeline:
         import os
         import re
 
-        scope_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "program_scopes")
+        scope_dir = os.path.join("data", "program_scopes")
         if not os.path.isdir(scope_dir):
             return ""
 

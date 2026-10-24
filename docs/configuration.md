@@ -5,8 +5,8 @@ copy one to a directory you control. A profile composes strategies and policies;
 it is not a script executed by the agents. Python extensions implement behavior.
 
 ```bash
-python -m profiles inspect bugbounty
-python main.py full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN \
+fantasma profiles inspect bugbounty
+fantasma full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN \
   --director-llm claude --worker-llm claude --budget 1
 ```
 
@@ -62,7 +62,7 @@ arbitrary keys affect execution.
   methodology, scoring, mechanisms and coordination do not drive its sequential
   workers. See the [lab workflow reference](lab.md).
 
-`python -m profiles inspect PATH` shows resolved profile values, implemented
+`fantasma profiles inspect PATH` shows resolved profile values, implemented
 active hooks and filters. It does not combine a future `full` invocation's CLI
 flags, credentials or provider defaults, and it does not validate provider access.
 It warns about lab mode's unsupported swarm settings.
@@ -103,3 +103,10 @@ and [environment](reference/settings.md) references.
 The default interactive session uses the `scanner` role and waits for user prompts.
 It consumes methodology, mechanisms and interaction limits, and takes scope from
 `--targets` or `/scope`; it does not invoke the target provider. See [interactive](interactive.md).
+
+## Name compatibility
+
+Fantasma retains the `swarmhound` command as an alias. Existing profiles and
+local data paths are unchanged. Prefer `FANTASMA_DB_PATH`,
+`FANTASMA_TOOL_NETWORK`, and `FANTASMA_TOOL_HOST_REWRITE`; the corresponding
+`SWARMHOUND_*` variables still work when the new names are unset.

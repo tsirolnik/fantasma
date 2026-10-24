@@ -1,4 +1,4 @@
-# swarmhound benchmark lab — intentionally vulnerable, legal-to-attack targets.
+# fantasma benchmark lab — intentionally vulnerable, legal-to-attack targets.
 #
 # These images exist expressly to be attacked for training/testing. Run them on
 # an isolated host, and bring them DOWN when you're done.

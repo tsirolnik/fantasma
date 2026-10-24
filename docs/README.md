@@ -1,6 +1,6 @@
-# swarmhound documentation
+# fantasma documentation
 
-swarmhound composes an authorized investigation from target, methodology, model,
+fantasma composes an authorized investigation from target, methodology, model,
 coordination and incentive components. This documentation describes the current
 repository implementation. Experimental features and gaps are called out where
 relevant; it is not a promise that every profile field applies to every engine.

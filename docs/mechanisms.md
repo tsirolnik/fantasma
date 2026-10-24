@@ -36,7 +36,7 @@ the dependencies and credentials from the [README](../README.md) installed, run
 from the repository root against an authorized target:
 
 ```bash
-python main.py full --profile examples/mechanisms/profile.toml \
+fantasma full --profile examples/mechanisms/profile.toml \
   --targets YOUR_AUTHORIZED_DOMAIN --budget 1 \
   --director-llm claude --worker-llm claude
 ```
@@ -198,9 +198,9 @@ hooks deduplicate by name. Put complex branching in one custom mechanism.
 ## Discover and inspect without launching a run
 
 ```bash
-python -m profiles mechanisms
-python -m profiles inspect bugbounty
-python -m profiles inspect examples/mechanisms/conditional.toml
+fantasma profiles mechanisms
+fantasma profiles inspect bugbounty
+fantasma profiles inspect examples/mechanisms/conditional.toml
 ```
 
 The first command lists built-ins, Python constructor signatures, descriptions

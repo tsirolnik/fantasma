@@ -36,7 +36,7 @@ async def dashboard_auth(request: web.Request, handler):
         raise web.HTTPForbidden(text="WebSocket Origin required")
 
     token = request.headers.get("Authorization", "").removeprefix("Bearer ")
-    token = token or request.cookies.get("swarmhound_session", "")
+    token = token or request.cookies.get("fantasma_session", "") or request.cookies.get("swarmhound_session", "")
     authenticated = secrets.compare_digest(token.encode(), request.app["dashboard_token"].encode())
     if request.path == "/login" and request.method == "POST":
         form = await request.post()
@@ -44,10 +44,10 @@ async def dashboard_auth(request: web.Request, handler):
         if not secrets.compare_digest(supplied.encode(), request.app["dashboard_token"].encode()):
             raise web.HTTPUnauthorized(text="Invalid dashboard token")
         response = web.Response(status=303, headers={"Location": "/"})
-        response.set_cookie("swarmhound_session", supplied, httponly=True,
+        response.set_cookie("fantasma_session", supplied, httponly=True,
                             samesite="Strict", secure=request.secure, path="/")
     elif request.path == "/" and request.method == "GET" and not authenticated:
-        response = web.Response(content_type="text/html", text='<!doctype html><html lang="en"><meta charset="utf-8"><title>swarmhound login</title>\n<h1>swarmhound dashboard</h1><p>Enter the access token printed in the server terminal.</p>\n<form method="post" action="/login"><label>Access token <input name="token" type="password" required autocomplete="off"></label><button>Sign in</button></form></html>')
+        response = web.Response(content_type="text/html", text='<!doctype html><html lang="en"><meta charset="utf-8"><title>fantasma login</title>\n<h1>fantasma dashboard</h1><p>Enter the access token printed in the server terminal.</p>\n<form method="post" action="/login"><label>Access token <input name="token" type="password" required autocomplete="off"></label><button>Sign in</button></form></html>')
     elif not authenticated:
         raise web.HTTPUnauthorized(text="Dashboard authentication required")
     else:

@@ -1,4 +1,4 @@
-# swarmhound — A configurable engine with runtime feedback
+# fantasma — A configurable engine with runtime feedback
 
 With an explicit swarm profile, the framework is **assembled at startup**, then
 **adapts while it runs**. These diagrams describe the current swarm path; the

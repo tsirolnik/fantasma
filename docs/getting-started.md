@@ -9,23 +9,27 @@ target. Run commands from the repository root unless a step says otherwise.
 Install Python 3.13 or newer, then:
 
 ```bash
-git clone https://github.com/tsirolnik/swarmhound.git
-cd swarmhound
+git clone https://github.com/tsirolnik/fantasma.git
+cd fantasma
 python3 --version
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell. The remaining
 shell examples use Bash/zsh. In a new terminal, activate the environment again.
 
+The installation adds `fantasma` to the active environment. Check it with
+`fantasma --version` and `fantasma --help`. Bare `fantasma` opens the
+interactive pentester. Keep the environment activated when using the command.
+
 You can now inspect profiles and test mechanism logic. These steps do not need
 LLM credentials, a running Docker daemon, or a target service:
 
 ```bash
-python -m profiles mechanisms
-python -m profiles inspect examples/mechanisms/profile.toml
+fantasma profiles mechanisms
+fantasma profiles inspect examples/mechanisms/profile.toml
 ```
 
 The inspector prints JSON with resolved profile values, active mechanisms and
@@ -37,10 +41,10 @@ extensions, so use profiles you trust.
 Copy the working example to a sibling directory:
 
 ```bash
-mkdir -p ../my-swarmhound-profile
-cp examples/mechanisms/coverage.py ../my-swarmhound-profile/
-cp examples/mechanisms/profile.toml ../my-swarmhound-profile/
-python -m profiles inspect ../my-swarmhound-profile/profile.toml
+mkdir -p ../my-fantasma-profile
+cp examples/mechanisms/coverage.py ../my-fantasma-profile/
+cp examples/mechanisms/profile.toml ../my-fantasma-profile/
+fantasma profiles inspect ../my-fantasma-profile/profile.toml
 ```
 
 The two files have different jobs:
@@ -72,7 +76,7 @@ from types import SimpleNamespace
 from profiles.loader import load_profile
 from memory.mechanisms import build_mechanisms
 
-profile = load_profile('../my-swarmhound-profile/profile.toml')
+profile = load_profile('../my-fantasma-profile/profile.toml')
 mechanism, = build_mechanisms(profile.mechanisms)
 finding = SimpleNamespace(target='authorized.test')
 
@@ -98,8 +102,8 @@ extension because imported modules are cached.
 Copy the conditional example into the same directory:
 
 ```bash
-cp examples/mechanisms/conditional.toml ../my-swarmhound-profile/
-python -m profiles inspect ../my-swarmhound-profile/conditional.toml
+cp examples/mechanisms/conditional.toml ../my-fantasma-profile/
+fantasma profiles inspect ../my-fantasma-profile/conditional.toml
 ```
 
 It sets a bonus of 12 and only invokes `on_submit` when a finding is accepted,
@@ -161,7 +165,7 @@ the [README](../README.md#install) and [configuration reference](configuration.m
 Replace the target placeholder with a system you own or are authorized to test:
 
 ```bash
-python main.py full --profile ../my-swarmhound-profile/profile.toml \
+fantasma full --profile ../my-fantasma-profile/profile.toml \
   --targets YOUR_AUTHORIZED_DOMAIN \
   --director-llm claude --worker-llm claude --analyzer-llm claude \
   --budget 1 --web

@@ -5,27 +5,26 @@ Regenerate with `python scripts/generate_reference.py`. Profile and runtime fall
 rules are in [configuration](../configuration.md). Global flags precede the command.
 
 ```bash
-python main.py --verbose full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN
+fantasma --verbose full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN
 ```
 
 ## Global options
 
 ```text
-usage: ai-bugbounty [-h] [--llm {claude,gemini,ollama,openai,vertex}]
-                    [--output-dir OUTPUT_DIR] [--verbose]
-                    [--openai-base-url OPENAI_BASE_URL]
-                    [--openai-api-key OPENAI_API_KEY]
-                    [--vertex-project VERTEX_PROJECT]
-                    [--vertex-region VERTEX_REGION]
-                    [--vertex-model VERTEX_MODEL]
-                    [--gemini-api-key GEMINI_API_KEY]
-                    [--gemini-model GEMINI_MODEL]
-                    {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync} ...
+usage: fantasma [-h] [--version] [--llm {claude,gemini,ollama,openai,vertex}]
+                [--output-dir OUTPUT_DIR] [--verbose]
+                [--openai-base-url OPENAI_BASE_URL]
+                [--openai-api-key OPENAI_API_KEY]
+                [--vertex-project VERTEX_PROJECT]
+                [--vertex-region VERTEX_REGION] [--vertex-model VERTEX_MODEL]
+                [--gemini-api-key GEMINI_API_KEY]
+                [--gemini-model GEMINI_MODEL]
+                {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles} ...
 
-AI-powered bug bounty automation agent
+Configurable AI-assisted pentesting and security research
 
 positional arguments:
-  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync}
+  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles}
     discover            Find high-ROI bug bounty programs
     scan                Scan a specific target
     fuzz                Fuzz a binary target (experimental)
@@ -37,9 +36,12 @@ positional arguments:
     record-outcome      Record a finding submission outcome
     validate            Re-validate findings from a past scan
     graph-sync          Rebuild FalkorDB graph from SQLite data
+    profiles            Inspect profiles and list mechanisms without starting
+                        a run
 
 options:
   -h, --help            show this help message and exit
+  --version             show program's version number and exit
   --llm {claude,gemini,ollama,openai,vertex}
                         LLM provider to use
   --output-dir OUTPUT_DIR
@@ -69,7 +71,7 @@ options:
 Source: [commands/discover.py](../../commands/discover.py).
 
 ```text
-usage: ai-bugbounty discover [-h] [--top TOP] [--min-bounty MIN_BOUNTY]
+usage: fantasma discover [-h] [--top TOP] [--min-bounty MIN_BOUNTY]
 
 options:
   -h, --help            show this help message and exit
@@ -83,7 +85,7 @@ options:
 Source: [commands/scan.py](../../commands/scan.py).
 
 ```text
-usage: ai-bugbounty scan [-h] --target TARGET
+usage: fantasma scan [-h] --target TARGET
 
 options:
   -h, --help       show this help message and exit
@@ -95,8 +97,8 @@ options:
 Source: [commands/fuzz.py](../../commands/fuzz.py).
 
 ```text
-usage: ai-bugbounty fuzz [-h] --binary BINARY --corpus CORPUS
-                         [--timeout TIMEOUT] [--output OUTPUT]
+usage: fantasma fuzz [-h] --binary BINARY --corpus CORPUS [--timeout TIMEOUT]
+                     [--output OUTPUT]
 
 options:
   -h, --help         show this help message and exit
@@ -111,26 +113,25 @@ options:
 Source: [commands/full.py](../../commands/full.py).
 
 ```text
-usage: ai-bugbounty full [-h] [--interaction {batch,terminal,web}] [--top TOP]
-                         [--min-bounty MIN_BOUNTY] [--budget BUDGET] [--auto]
-                         [--dry-run]
-                         [--director-llm {claude,gemini,ollama,openai,vertex}]
-                         [--director-model DIRECTOR_MODEL]
-                         [--worker-llm {claude,gemini,ollama,openai,vertex}]
-                         [--worker-model WORKER_MODEL]
-                         [--analyzer-llm {claude,gemini,ollama,openai,vertex}]
-                         [--analyzer-model ANALYZER_MODEL]
-                         [--pause-at PAUSE_AT] [--cli-tools]
-                         [--mode {pentester,interactive,swarm,lab}]
-                         [--swarm-agents SWARM_AGENTS] [--num-teams NUM_TEAMS]
-                         [--mechanisms MECHANISMS] [--profile PROFILE]
-                         [--ollama-per-agent] [--domain-triage]
-                         [--no-auth-testing] [--no-browser] [--compact]
-                         [--scope-pdf-only] [--keep-recent KEEP_RECENT]
-                         [--max-tokens MAX_TOKENS] [--generous-context]
-                         [--targets TARGETS] [--program-url PROGRAM_URL]
-                         [--web] [--web-port WEB_PORT] [--resume]
-                         [--resume-scan NAME_OR_ID] [--list-checkpoints]
+usage: fantasma full [-h] [--interaction {batch,terminal,web}] [--top TOP]
+                     [--min-bounty MIN_BOUNTY] [--budget BUDGET] [--auto]
+                     [--dry-run]
+                     [--director-llm {claude,gemini,ollama,openai,vertex}]
+                     [--director-model DIRECTOR_MODEL]
+                     [--worker-llm {claude,gemini,ollama,openai,vertex}]
+                     [--worker-model WORKER_MODEL]
+                     [--analyzer-llm {claude,gemini,ollama,openai,vertex}]
+                     [--analyzer-model ANALYZER_MODEL] [--pause-at PAUSE_AT]
+                     [--cli-tools] [--mode {pentester,interactive,swarm,lab}]
+                     [--swarm-agents SWARM_AGENTS] [--num-teams NUM_TEAMS]
+                     [--mechanisms MECHANISMS] [--profile PROFILE]
+                     [--ollama-per-agent] [--domain-triage]
+                     [--no-auth-testing] [--no-browser] [--compact]
+                     [--scope-pdf-only] [--keep-recent KEEP_RECENT]
+                     [--max-tokens MAX_TOKENS] [--generous-context]
+                     [--targets TARGETS] [--program-url PROGRAM_URL] [--web]
+                     [--web-port WEB_PORT] [--resume]
+                     [--resume-scan NAME_OR_ID] [--list-checkpoints]
 
 options:
   -h, --help            show this help message and exit
@@ -231,7 +232,7 @@ options:
 Source: [commands/report.py](../../commands/report.py).
 
 ```text
-usage: ai-bugbounty report [-h] --findings FINDINGS
+usage: fantasma report [-h] --findings FINDINGS
 
 options:
   -h, --help           show this help message and exit
@@ -243,7 +244,7 @@ options:
 Source: [commands/costs.py](../../commands/costs.py).
 
 ```text
-usage: ai-bugbounty costs [-h]
+usage: fantasma costs [-h]
 
 options:
   -h, --help  show this help message and exit
@@ -254,7 +255,7 @@ options:
 Source: [commands/learning.py](../../commands/learning.py).
 
 ```text
-usage: ai-bugbounty learning [-h]
+usage: fantasma learning [-h]
 
 options:
   -h, --help  show this help message and exit
@@ -265,7 +266,7 @@ options:
 Source: [commands/history.py](../../commands/history.py).
 
 ```text
-usage: ai-bugbounty history [-h] [--target TARGET]
+usage: fantasma history [-h] [--target TARGET]
 
 options:
   -h, --help       show this help message and exit
@@ -277,8 +278,8 @@ options:
 Source: [commands/record_outcome.py](../../commands/record_outcome.py).
 
 ```text
-usage: ai-bugbounty record-outcome [-h] --finding-id FINDING_ID [--accepted]
-                                   [--bounty BOUNTY]
+usage: fantasma record-outcome [-h] --finding-id FINDING_ID [--accepted]
+                               [--bounty BOUNTY]
 
 options:
   -h, --help            show this help message and exit
@@ -293,12 +294,12 @@ options:
 Source: [commands/validate.py](../../commands/validate.py).
 
 ```text
-usage: ai-bugbounty validate [-h] [--scan SCAN_ID] [--budget BUDGET]
-                             [--director-llm {claude,gemini,ollama,openai,vertex}]
-                             [--director-model DIRECTOR_MODEL]
-                             [--worker-llm {claude,gemini,ollama,openai,vertex}]
-                             [--worker-model WORKER_MODEL] [--web]
-                             [--web-port WEB_PORT]
+usage: fantasma validate [-h] [--scan SCAN_ID] [--budget BUDGET]
+                         [--director-llm {claude,gemini,ollama,openai,vertex}]
+                         [--director-model DIRECTOR_MODEL]
+                         [--worker-llm {claude,gemini,ollama,openai,vertex}]
+                         [--worker-model WORKER_MODEL] [--web]
+                         [--web-port WEB_PORT]
 
 options:
   -h, --help            show this help message and exit
@@ -321,17 +322,32 @@ options:
 Source: [commands/graph_sync.py](../../commands/graph_sync.py).
 
 ```text
-usage: ai-bugbounty graph-sync [-h]
+usage: fantasma graph-sync [-h]
 
 options:
   -h, --help  show this help message and exit
 ```
 
+## profiles
+
+Source: [commands/profiles.py](../../commands/profiles.py).
+
+```text
+usage: fantasma profiles [-h] {inspect,mechanisms} [profile]
+
+positional arguments:
+  {inspect,mechanisms}
+  profile               Profile name or TOML path for inspect
+
+options:
+  -h, --help            show this help message and exit
+```
+
 ## Offline profile tools
 
 ```bash
-python -m profiles mechanisms
-python -m profiles inspect NAME_OR_PATH
+fantasma profiles mechanisms
+fantasma profiles inspect NAME_OR_PATH
 ```
 
 These import trusted extensions but do not start a run. See [mechanisms](../mechanisms.md).

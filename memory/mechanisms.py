@@ -326,7 +326,7 @@ def _resolve_mechanism_class(spec: str) -> type[Mechanism]:
     from pathlib import Path
     if module_path.endswith(".py"):
         path = Path(module_path).resolve()
-        module_name = "_swarmhound_mechanism_" + hashlib.sha256(str(path).encode()).hexdigest()
+        module_name = "_fantasma_mechanism_" + hashlib.sha256(str(path).encode()).hexdigest()
         if module_name in sys.modules:
             module = sys.modules[module_name]
         else:
