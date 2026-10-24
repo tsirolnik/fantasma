@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import os
 import sys
 
 from agents.messaging import MessageBus, TaskAssignment
@@ -56,6 +57,25 @@ While work runs, new text redirects it before a subsequent model call.
 
 async def terminal_lines(session=None):
     """Read terminal or piped lines without an uncancellable input thread."""
+    if sys.stdin.isatty() and sys.stdout.isatty() and getattr(session, "live_terminal", True):
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.patch_stdout import patch_stdout
+        from prompt_toolkit.styles import Style
+        prompt = PromptSession(
+            bottom_toolbar=session.activity.toolbar if session else None,
+            refresh_interval=0.1,
+            style=Style.from_dict({"bottom-toolbar": "bg:#101b24 #78dcca"}),
+        )
+        with patch_stdout():
+            while True:
+                try:
+                    yield await prompt.prompt_async('you> ')
+                except EOFError:
+                    return
+                except KeyboardInterrupt:
+                    yield '/stop'
+        return
+
     loop = asyncio.get_running_loop()
     queue = asyncio.Queue()
     fd = sys.stdin.fileno()
@@ -92,7 +112,9 @@ class InteractiveSession:
         self.agent = None
         self.browser = None
         self.task = None
-        self.terminal_prompt = False
+        from utils.terminal_activity import TerminalActivity
+        self.activity = TerminalActivity(lambda text: self.write(text))
+        self.live_terminal = False
         self.diagnostics = (getattr(args, "diagnostics", False) or
                             getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
@@ -140,8 +162,8 @@ class InteractiveSession:
             max_total_tool_calls=self.profile.interaction.max_tool_calls,
         )
         self.agent.session_budget = self.budget
-        if self.diagnostics:
-            self.agent.on_tool_start = lambda name, tool, params: self.write(f'[tool] {tool}')
+        self.agent.on_tool_start = self.activity.tool_started
+        self.agent.on_tool_call = self.activity.tool_finished
         self.set_scope(self.scope)
 
     def set_scope(self, scope):
@@ -164,7 +186,9 @@ class InteractiveSession:
             raise
         except Exception as exc:
             self.write(f'Session error: {exc}')
-        if self.terminal_prompt:
+        finally:
+            self.activity.finish()
+        if not self.live_terminal and sys.stdin.isatty() and sys.stdout.isatty():
             print('you> ', end='', flush=True)
 
     async def stop(self):
@@ -173,6 +197,7 @@ class InteractiveSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await self.task
         self.task = None
+        self.activity.finish()
         if self.agent:
             self.agent._sticky_directives.clear()
             while not self.agent._directive_queue.empty():
@@ -214,7 +239,9 @@ class InteractiveSession:
             else:
                 self.write('Agent is starting. Please resend after startup or use /stop.')
         else:
-            self.write('Thinking… (you can keep typing to redirect, or /stop)')
+            self.activity.begin()
+            if not self.live_terminal:
+                self.write('Thinking… 👻 Consulting the packet spirits. (/stop to cancel)')
             self.task = asyncio.create_task(self.ask(text))
         return True
 
@@ -237,7 +264,8 @@ class InteractiveSession:
 
 async def run_interactive(profile, llm_config, args, mechanisms):
     session = InteractiveSession(profile, llm_config, args, mechanisms)
-    session.terminal_prompt = sys.stdin.isatty() and sys.stdout.isatty()
+    session.live_terminal = (sys.stdin.isatty() and sys.stdout.isatty()
+                             and os.environ.get("TERM", "") != "dumb")
     web_ui = None
     try:
         if getattr(args, "web", False) or profile.dashboard.enabled:

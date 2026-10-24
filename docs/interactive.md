@@ -37,8 +37,21 @@ your first plain-text request. Controls such as `/status` do not call a model.
 
 Interactive sessions hide diagnostic console logs by default, while retaining
 logs under `data/logs/`. Responses and actionable session errors remain visible.
-A `Thinking…` status appears as soon as you send a request; you can still send
-redirects or `/stop` while it runs. The next `you>` prompt follows the response.
+In a terminal, an animated ghost-themed status bar rotates playful phrases while
+showing elapsed time. During tool execution it displays the actual tool name.
+Tool activity is visible even with diagnostics disabled:
+
+```text
+  ↳ http_fetch · example.test
+  ✓ http_fetch · done · 0.3s
+```
+
+Failures use `✗`. Previews omit raw arguments and output, including URL credentials
+and query strings. Tool results remain available to the agent and diagnostic logs.
+The input prompt stays editable while activity updates; use `/stop` or Ctrl+C to
+cancel active work. Ctrl+D closes the session. Piped input uses plain text with
+no animation. The playful phrases are waiting indicators, not claims about
+specific actions or access to the model's internal reasoning.
 
 Enable console diagnostics for a session:
 
