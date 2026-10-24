@@ -15,9 +15,9 @@ orchestration code.
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
 
-![Fantasma interactive dashboard](docs/fantasma-dashboard.png)
+![Fantasma agent dashboard](docs/fantasma-dashboard.png)
 
-*The interactive web companion, shown in dry-run mode without model calls.*
+*Full agent dashboard with illustrative example data; no live scan or model calls. Capture: `python scripts/capture_dashboard.py`.*
 
 ## Start interactively
 
