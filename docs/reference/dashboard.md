@@ -84,3 +84,20 @@ The bridge also handles `inject`, `checkpoint_response`, `help_response` and
 `browser_watch`; consult `PipelineBridge.handle_client_message` and the
 [frontend](../../web/frontend.html) for their current payloads and live event
 consumers. Those interaction payloads are not a stable public integration API.
+
+## Using the workspace
+
+The full dashboard keeps status and controls above the activity stream and agent
+panels. **Filter activity** searches the displayed event text, including agent
+names. Checkpoint and help requests remain visible even when a filter is active.
+On smaller screens, the panels stack and the tab strip scrolls horizontally.
+
+The conversational interface shares the same visual language, with scope, status,
+and stop controls beside the session output. Use **Ctrl+Enter** (or **⌘+Enter**)
+to submit a request; Enter alone adds a newline. Setting scope inserts `/scope`
+into the composer for you to complete.
+
+For local browser checks without model calls, run `python scripts/check_ui.py`
+after installing Playwright Chromium. The README screenshot is generated from
+the actual full dashboard with explicitly synthetic data using
+`python scripts/capture_dashboard.py`.

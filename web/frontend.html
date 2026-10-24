@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>fantasma</title>
+<title>Fantasma · Research workspace</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -582,17 +582,73 @@
   }
   .conn-connected { color: var(--green); }
   .conn-disconnected { color: var(--red); }
+
+  /* Workspace presentation: system fonts, readable hierarchy, responsive panels. */
+  :root { --bg:#0b1118; --surface:#111b26; --border:#263443; --text:#e5edf5; --text-dim:#9aabba; --accent:#71deca; --cyan:#71deca; }
+  body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px; height:100dvh; }
+  button,input,select,textarea { font:inherit; }
+  button { min-height:34px; }
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:2px solid var(--accent)!important; outline-offset:3px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .header { padding:18px 24px; background:var(--bg); flex-shrink:0; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .brand-mark { display:grid; place-items:center; width:34px; height:38px; border:1px solid #477e78; border-radius:12px 12px 4px 4px; color:var(--accent); font:700 18px monospace; background:#142c2c; }
+  .header h1 { font-size:21px; letter-spacing:-.6px; }
+  .brand-caption { margin-top:1px; font-size:11px; color:var(--text-dim); letter-spacing:.4px; }
+  .status-badge { border:1px solid currentColor; border-radius:6px; font-size:11px; padding:4px 9px; }
+  .info-bar { padding:12px 24px; flex-wrap:wrap; gap:8px; background:var(--bg); }
+  .info-bar > span { padding:9px 12px; background:var(--surface); border:1px solid var(--border); border-radius:7px; flex:1; min-width:100px; flex-direction:column; align-items:flex-start; gap:3px; }
+  .info-bar > span .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+  .info-bar .value { font-size:13px; overflow-wrap:anywhere; }
+  .controls { width:100%; flex-wrap:wrap; align-items:center; padding-top:5px; }
+  .controls button { padding:6px 12px; background:var(--surface); }
+  .controls > span { margin-left:auto!important; }
+  .main { gap:16px; padding:16px 24px; }
+  .stream-panel,.sidebar { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#0e1721; }
+  .stream-panel { flex:1; }
+  .sidebar { flex:0 0 440px; }
+  .stream-header { padding:14px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; color:var(--text); }
+  .stream-title { font-size:14px; font-weight:600; }
+  .stream-caption { font-size:11px; color:var(--text-dim); font-weight:400; margin-top:2px; }
+  #eventFilter { margin-left:auto; width:170px; min-width:0; padding:7px 9px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; }
+  .stream { padding:8px 0; }
+  .stream:empty::before { content:"Waiting for activity. Agent messages and tool calls will appear here."; display:block; padding:32px 20px; color:var(--text-dim); }
+  .event { padding:12px 16px; border-bottom:1px solid #1b2835; line-height:1.7; overflow-wrap:anywhere; }
+  .event .time { font-family:monospace; font-size:10px; }
+  .event .tag { font-size:10px; border:1px solid #304253; background:#172431; color:var(--text-dim); }
+  .event .sender { font-family:monospace; font-size:12px; }
+  .event .content { font-size:13px; }
+  .tab-bar { overflow-x:auto; flex-shrink:0; padding:0 6px; }
+  .tab-bar button { flex:0 0 auto; padding:14px 10px; font-size:12px; }
+  .tab-content { padding:14px; }
+  .agent-row { display:grid; grid-template-columns:1fr auto; gap:5px 10px; padding:12px; border:1px solid var(--border); background:var(--surface); border-radius:7px; margin-bottom:8px; }
+  .agent-name { font-size:13px; min-width:0; }
+  .agent-stats { grid-row:2; grid-column:1 / -1; text-align:left; font-family:monospace; font-size:11px; }
+  .agent-status { grid-row:1; grid-column:2; font-size:11px; overflow-wrap:anywhere; }
+  #sharedMemoryPanel,#recorderPanel,#scoreboardPanel { padding:14px; border:1px solid var(--border); border-radius:7px; background:var(--surface); }
+  .cost-row { padding:6px 0; font-variant-numeric:tabular-nums; }
+  .god-mode { margin:0 24px; padding:12px 0; background:transparent; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .god-mode .gm-label { color:var(--text-dim); font-size:10px; letter-spacing:1px; }
+  .god-mode input[type="text"] { min-width:160px; padding:10px 12px; border-radius:6px; }
+  .god-mode button { background:var(--accent); color:#08241f; border:1px solid var(--accent); border-radius:6px; padding:7px 20px; font-weight:600; }
+  .god-mode select { padding:8px; border-radius:6px; }
+  .quick-actions { padding:0 24px 16px; background:transparent; border:0; flex-wrap:wrap; }
+  .quick-actions button { border-color:var(--border); padding:5px 10px; color:var(--text-dim); }
+  @media(max-width:1050px) { .sidebar { flex-basis:380px; } .header,.info-bar { padding-left:16px; padding-right:16px; } .main { padding:12px 16px; gap:12px; } }
+  @media(max-width:760px) { body { height:auto; min-height:100dvh; overflow:auto; } .main { flex-direction:column; flex:none; } .stream-panel { flex:none; height:440px; } .sidebar { flex:none; min-height:400px; } .tab-content { max-height:580px; } .header { gap:12px; } .brand-caption { display:none; } .info-bar > span { flex:1 1 120px; } .god-mode { margin:0 16px; } .god-mode input[type="text"] { flex:1 1 100%; order:3; } .quick-actions { padding:0 16px 16px; } .event { padding:10px; } }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }
+
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>fantasma</h1>
+  <div class="brand"><span class="brand-mark" aria-hidden="true">f.</span><div><h1>Fantasma</h1><p class="brand-caption">Security research workspace</p></div></div>
   <div style="display:flex; align-items:center; gap:10px;">
     <span class="conn-status" id="connStatus">Connecting...</span>
-    <div class="status-badge status-running" id="statusBadge">
+    <div class="status-badge" id="statusBadge">
       <span class="dot"></span>
-      <span id="statusText">Running</span>
+      <span id="statusText">Connecting</span>
     </div>
   </div>
 </div>
@@ -616,7 +672,7 @@
     <span style="margin-left:8px;display:inline-flex;align-items:center;gap:4px;">
       <span style="color:var(--text-dim);font-size:11px;">Budget:</span>
       <span id="currentBudget" style="color:var(--green);font-size:11px;">$—</span>
-      <input type="number" id="budgetInput" step="0.5" min="0.1" placeholder="$"
+      <input type="number" id="budgetInput" aria-label="Session budget in dollars" step="0.5" min="0.1" placeholder="$"
              style="width:60px;padding:2px 4px;font-size:11px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;">
       <button onclick="setBudget()" style="font-size:11px;padding:2px 8px;">Set</button>
     </span>
@@ -625,19 +681,19 @@
 
 <div class="main">
   <div class="stream-panel">
-    <div class="stream-header">Live Event Stream</div>
+    <div class="stream-header"><div><div class="stream-title">Live activity</div><div class="stream-caption">Agent messages, decisions &amp; tool calls</div></div><input id="eventFilter" type="search" aria-label="Filter activity" placeholder="Filter activity…" oninput="filterEvents()"></div>
     <div class="stream" id="stream"></div>
   </div>
 
   <div class="sidebar">
     <div class="tab-bar">
-      <button class="active" onclick="switchTab('agents')">Agents</button>
-      <button onclick="switchTab('findings')">Findings</button>
-      <button onclick="switchTab('history')">History</button>
-      <button onclick="switchTab('graph')">Graph</button>
-      <button onclick="switchTab('costs')">Costs</button>
-      <button onclick="switchTab('llm-wire')">Thinking</button>
-      <button onclick="switchTab('browsers')">Browsers</button>
+      <button class="active" onclick="switchTab('agents', this)">Agents</button>
+      <button onclick="switchTab('findings', this)">Findings</button>
+      <button onclick="switchTab('history', this)">History</button>
+      <button onclick="switchTab('graph', this)">Graph</button>
+      <button onclick="switchTab('costs', this)">Costs</button>
+      <button onclick="switchTab('llm-wire', this)">Thinking</button>
+      <button onclick="switchTab('browsers', this)">Browsers</button>
     </div>
     <div class="tab-content">
       <div class="tab-pane active" id="tab-agents">
@@ -775,12 +831,12 @@
 </div>
 
 <div class="god-mode">
-  <span class="gm-label">GOD MODE</span>
-  <select id="gmRecipient">
+  <span class="gm-label">DIRECT AGENTS</span>
+  <select id="gmRecipient" aria-label="Message recipient">
     <option value="director">director</option>
     <option value="all">all agents</option>
   </select>
-  <input type="text" id="gmInput" placeholder="Chat with director or send directive to agents..." onkeydown="if(event.key==='Enter')sendDirective()">
+  <input type="text" id="gmInput" aria-label="Message to agents" placeholder="Chat with director or send directive to agents..." onkeydown="if(event.key==='Enter')sendDirective()">
   <button onclick="sendDirective()">Send</button>
 </div>
 <div class="quick-actions">
@@ -1452,8 +1508,17 @@ function updateGraphStatus(graph) {
   }
 }
 
+function filterEvents() {
+  const query = document.getElementById("eventFilter").value.toLowerCase();
+  for (const el of stream.children) {
+    // Keep checkpoint/help requests visible even when filtering activity.
+    el.hidden = el.classList.contains("event") && !el.textContent.toLowerCase().includes(query);
+  }
+}
+
 function appendToStream(el) {
   stream.appendChild(el);
+  filterEvents();
   if (autoScroll) stream.scrollTop = stream.scrollHeight;
 }
 
@@ -1504,10 +1569,10 @@ function quickAction(text) {
 }
 
 // Tabs
-function switchTab(name) {
+function switchTab(name, button) {
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  event.target.classList.add('active');
+  button.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'costs' || name === 'findings') fetchSidebar();
   if (name === 'history') fetchHistory();
