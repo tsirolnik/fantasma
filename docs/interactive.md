@@ -33,7 +33,24 @@ There is one pentester in this conversational implementation. It uses the
 the cost budget applies across the session. No model or browser is created until
 your first plain-text request. Controls such as `/status` do not call a model.
 
+## Steering and interruption
+
+- `/steer TEXT` queues guidance for the next model step. An active tool continues.
+  Plain text while busy behaves the same way, including during agent startup.
+- `/interrupt TEXT` cancels the current request, waits for its cleanup, then starts
+  the replacement instruction. Previously completed conversation turns remain.
+- `/stop` or Ctrl+C cancels work without starting another request. The session
+  stays open. An empty `/interrupt` prints usage and leaves work running.
+- When idle, `/steer TEXT` starts a new request.
+
+Cancellation does not undo external actions already performed. In-flight remote
+requests may still complete at their provider; interrupted-turn history is not
+committed to the conversation. Shared findings already recorded remain available.
+
 ## Console output
+
+Model replies render Markdown headings, lists, tables, emphasis, and highlighted
+code blocks in the terminal. Piped output preserves the Markdown source.
 
 Interactive sessions hide diagnostic console logs by default, while retaining
 logs under `data/logs/`. Responses and actionable session errors remain visible.

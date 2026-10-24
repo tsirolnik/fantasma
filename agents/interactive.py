@@ -10,6 +10,7 @@ import sys
 from agents.messaging import MessageBus, TaskAssignment
 from agents.pentester import PenTesterAgent
 from agents.llm_config import create_llm_for_agent
+from utils.terminal_markdown import MarkdownMessage, terminal_write
 from config import get_settings
 from cost.tracker import CostTracker
 from memory.shared import SharedMemory
@@ -49,6 +50,8 @@ HELP = """Enter a question or investigation request. No work starts until you se
 /scope HOST[,HOST]  Set authorized hosts (only while idle)
 /status            Show scope, spend and finding count
 /peek [ID|on|off]  Inspect tool inputs/results; Ctrl+O toggles live details
+/steer TEXT        Queue guidance for the next model step
+/interrupt TEXT    Cancel current work, then start the replacement request
 /stop              Cancel current work and remain in the session
 /quit              Cancel current work and close the session
 /help              Show this help
@@ -74,7 +77,7 @@ async def terminal_lines(session=None):
             refresh_interval=0.1,
             style=Style.from_dict({"bottom-toolbar": "bg:#101b24 #78dcca"}),
         )
-        with patch_stdout():
+        with patch_stdout(raw=True):
             while True:
                 try:
                     yield await prompt.prompt_async('you> ')
@@ -123,6 +126,7 @@ class InteractiveSession:
         from utils.terminal_activity import TerminalActivity
         self.activity = TerminalActivity(lambda text: self.write(text))
         self.live_terminal = False
+        self.pending_steering = []
         self.diagnostics = (getattr(args, "diagnostics", False) or
                             getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
@@ -186,10 +190,13 @@ class InteractiveSession:
     async def ask(self, text):
         try:
             await self.ensure_agent()
+            for directive in self.pending_steering:
+                self.agent.inject_directive(directive)
+            self.pending_steering.clear()
             result = await self.agent.execute(TaskAssignment(
                 agent_name='pentester', task_type='interactive', context=text))
             if result.success:
-                self.write(result.reflection or json.dumps(result.data, default=str))
+                self.write(MarkdownMessage(result.reflection or json.dumps(result.data, default=str)))
             else:
                 self.write(f'Work stopped: {result.error}')
         except asyncio.CancelledError:
@@ -197,6 +204,7 @@ class InteractiveSession:
         except Exception as exc:
             self.write(f'Session error: {exc}')
         finally:
+            self.pending_steering.clear()
             self.activity.finish()
         if not self.live_terminal and sys.stdin.isatty() and sys.stdout.isatty():
             print('you> ', end='', flush=True)
@@ -207,11 +215,25 @@ class InteractiveSession:
             with contextlib.suppress(asyncio.CancelledError):
                 await self.task
         self.task = None
+        self.pending_steering.clear()
         self.activity.finish()
         if self.agent:
             self.agent._sticky_directives.clear()
             while not self.agent._directive_queue.empty():
                 self.agent._directive_queue.get_nowait()
+
+    def start_request(self, text):
+        self.activity.begin()
+        if not self.live_terminal:
+            self.write('Thinking… 👻 Consulting the packet spirits. (/stop to cancel)')
+        self.task = asyncio.create_task(self.ask(text))
+
+    def steer(self, text):
+        if self.agent:
+            self.agent.inject_directive(text)
+        else:
+            self.pending_steering.append(text)
+        self.write('Steering queued for the next model step; the current tool continues.')
 
     async def handle(self, line):
         async with self._input_lock:
@@ -227,6 +249,22 @@ class InteractiveSession:
         if text == '/stop':
             await self.stop()
             self.write('Stopped. Ready for your next request.')
+        elif text == '/interrupt' or text.startswith('/interrupt '):
+            replacement = text[len('/interrupt'):].strip()
+            if not replacement:
+                self.write('Usage: /interrupt TEXT — cancel work and start a replacement request')
+            else:
+                await self.stop()
+                self.write('Previous work stopped. Starting your replacement request.')
+                self.start_request(replacement)
+        elif text == '/steer' or text.startswith('/steer '):
+            guidance = text[len('/steer'):].strip()
+            if not guidance:
+                self.write('Usage: /steer TEXT')
+            elif self.task and not self.task.done():
+                self.steer(guidance)
+            else:
+                self.start_request(guidance)
         elif text == '/help':
             self.write(HELP)
         elif text == '/peek' or text.startswith('/peek '):
@@ -252,16 +290,9 @@ class InteractiveSession:
         elif text.startswith('/'):
             self.write('Unknown command. Use /help.')
         elif self.task and not self.task.done():
-            if self.agent:
-                self.agent.inject_directive(text)
-                self.write('Redirect queued for the active pentester.')
-            else:
-                self.write('Agent is starting. Please resend after startup or use /stop.')
+            self.steer(text)
         else:
-            self.activity.begin()
-            if not self.live_terminal:
-                self.write('Thinking… 👻 Consulting the packet spirits. (/stop to cancel)')
-            self.task = asyncio.create_task(self.ask(text))
+            self.start_request(text)
         return True
 
     async def run(self, lines):
@@ -282,7 +313,7 @@ class InteractiveSession:
 
 
 async def run_interactive(profile, llm_config, args, mechanisms):
-    session = InteractiveSession(profile, llm_config, args, mechanisms)
+    session = InteractiveSession(profile, llm_config, args, mechanisms, write=terminal_write)
     session.live_terminal = (sys.stdin.isatty() and sys.stdout.isatty()
                              and os.environ.get("TERM", "") != "dumb")
     web_ui = None
