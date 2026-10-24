@@ -16,7 +16,7 @@ class ActivityTests(unittest.TestCase):
             self.assertNotEqual(first, activity.toolbar())
         activity.tool_started('agent', 'http_fetch', {})
         activity.tool_started('agent', 'http_fetch', {})
-        call = SimpleNamespace(tool_name='http_fetch', duration_ms=250, error=None, output={})
+        call = SimpleNamespace(tool_name='http_fetch', input={}, duration_ms=250, error=None, output={})
         activity.tool_finished(call)
         self.assertIn('Running http_fetch', activity.toolbar())
         activity.tool_finished(call)

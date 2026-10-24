@@ -42,8 +42,8 @@ showing elapsed time. During tool execution it displays the actual tool name.
 Tool activity is visible even with diagnostics disabled:
 
 ```text
-  ↳ http_fetch · example.test
-  ✓ http_fetch · done · 0.3s
+  ↳ #1 http_fetch · example.test
+  ✓ #1 http_fetch · done · 0.3s
 ```
 
 Failures use `✗`. Previews omit raw arguments and output, including URL credentials
@@ -52,6 +52,20 @@ The input prompt stays editable while activity updates; use `/stop` or Ctrl+C to
 cancel active work. Ctrl+D closes the session. Piped input uses plain text with
 no animation. The playful phrases are waiting indicators, not claims about
 specific actions or access to the model's internal reasoning.
+
+Inspect activity without enabling debug logs:
+
+- `/peek`: current phase, all running tool calls, and the five most recent completed calls.
+- `/peek 3`: inputs, result/error, status, and timing for call #3.
+- `Ctrl+O`: toggle live expanded tool details, preserving your input draft.
+- `/peek on` or `/peek off`: explicitly enable or disable live details.
+
+The inspector retains recent calls in memory (up to 100 completed calls plus
+active calls). Each input/result preview is capped at 4,000 characters. Common
+credential fields, bearer tokens, and URL credentials are redacted; arbitrary
+free-form tool output may still contain sensitive material. Inspect locally
+before sharing. Calls interrupted by stopping the request are marked accordingly.
+The model-wait phase reports the model and request size, not private reasoning.
 
 Enable console diagnostics for a session:
 

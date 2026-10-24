@@ -48,6 +48,7 @@ class InteractivePentester(PenTesterAgent):
 HELP = """Enter a question or investigation request. No work starts until you send one.
 /scope HOST[,HOST]  Set authorized hosts (only while idle)
 /status            Show scope, spend and finding count
+/peek [ID|on|off]  Inspect tool inputs/results; Ctrl+O toggles live details
 /stop              Cancel current work and remain in the session
 /quit              Cancel current work and close the session
 /help              Show this help
@@ -61,7 +62,14 @@ async def terminal_lines(session=None):
         from prompt_toolkit import PromptSession
         from prompt_toolkit.patch_stdout import patch_stdout
         from prompt_toolkit.styles import Style
+        from prompt_toolkit.key_binding import KeyBindings
+        keys = KeyBindings()
+        @keys.add('c-o')
+        def inspect_tools(event):
+            if session:
+                session.activity.toggle()
         prompt = PromptSession(
+            key_bindings=keys,
             bottom_toolbar=session.activity.toolbar if session else None,
             refresh_interval=0.1,
             style=Style.from_dict({"bottom-toolbar": "bg:#101b24 #78dcca"}),
@@ -164,6 +172,8 @@ class InteractiveSession:
         self.agent.session_budget = self.budget
         self.agent.on_tool_start = self.activity.tool_started
         self.agent.on_tool_call = self.activity.tool_finished
+        self.agent.on_llm_start = self.activity.llm_started
+        self.agent.on_llm_call = self.activity.llm_finished
         self.set_scope(self.scope)
 
     def set_scope(self, scope):
@@ -219,6 +229,15 @@ class InteractiveSession:
             self.write('Stopped. Ready for your next request.')
         elif text == '/help':
             self.write(HELP)
+        elif text == '/peek' or text.startswith('/peek '):
+            argument = text[5:].strip()
+            if argument in ('on', 'off'):
+                self.activity.expanded = argument == 'on'
+                self.write(self.activity.peek())
+            elif not argument or argument.isdigit():
+                self.write(self.activity.peek(int(argument) if argument else None))
+            else:
+                self.write('Usage: /peek [ID|on|off]')
         elif text == '/status':
             self.write(f'Scope: {self.scope}; spend: ${self.cost.get_total():.4f}; findings: {self.memory.findings_count}')
         elif text.startswith('/scope') and (text == '/scope' or text[6:7] == ' '):
