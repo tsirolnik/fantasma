@@ -15,9 +15,28 @@ orchestration code.
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
 
-![Fantasma agent dashboard](docs/fantasma-dashboard.png)
+## Screenshots
 
-*Full agent dashboard with illustrative example data; no live scan or model calls. Capture: `python scripts/capture_dashboard.py`.*
+### Full agent dashboard
+
+Follow agent activity, inspect shared context, and track costs across a team.
+
+![Fantasma full dashboard showing agent activity, team status, and costs](docs/fantasma-dashboard.png)
+
+*Illustrative example data; no live scan or model calls.*
+
+### Interactive workspace
+
+Set scope, send investigation requests, and steer or stop work from the browser.
+The browser and terminal share the same session.
+
+![Fantasma interactive workspace showing scope, session activity, and controls](docs/fantasma-interactive.png)
+
+*Captured in a local dry-run session; no live scan or model calls.*
+
+See the [dashboard reference](docs/reference/dashboard.md) for controls and setup.
+To reproduce these captures, run `python scripts/capture_dashboard.py` and
+`python scripts/check_ui.py` with the development dependencies installed.
 
 ## Start interactively
 
