@@ -27,14 +27,15 @@ starts a real run. TOML can import Python extensions, including during inspectio
 | `scoring` | `default_accepted = 10`, `rejected = -10`, `duplicate = -5`, `termination_threshold = -50` | Shared-memory base scoring and worker termination |
 | `scoring.accepted` | critical 50, high 30, medium 15, low 5 | Severity rewards; a supplied table replaces the whole map, omitted severities use `default_accepted` |
 | `coordination` | `claim_mode = "exclusive"`, `director_review_interval_s = 30`, `cross_team_sharing = true` | Swarm claims/review; cross-team sharing matters only with multiple teams |
-| `llm.director` | `provider = "claude"`, `model = ""` | Director provider/model |
-| `llm.default_worker` | `provider = "ollama"`, `model = ""` | Default worker provider/model |
-| `llm.overrides.<agent_name>` | Each table has `provider` and `model` | Role override by lookup key, not necessarily runtime agent ID; a missing provider defaults to Ollama |
+| `llm.director` | Inherits Director environment settings | Director provider/model |
+| `llm.default_worker` | Inherits worker environment settings | Default worker provider/model |
+| `llm.overrides.<agent_name>` | Each table has `provider` and `model` | Role override by lookup key, not necessarily runtime agent ID; missing fields inherit the default worker |
 
 An empty model string selects the provider's configured default. Provider
 credentials, endpoint URLs and pricing come from settings/environment; see
-[`.env.example`](../.env.example). The global `LLM_PROVIDER` setting is not a
-replacement for the Director and worker role configuration.
+[`.env.example`](../.env.example). Role provider settings inherit `LLM_PROVIDER` when empty. Explicit profile fields
+override environment settings. The interactive profile does not pin a provider;
+other shipped profiles can explicitly select providers.
 
 Methodologies and target providers accept `module.path:ClassName`; mechanisms
 also accept `./file.py:ClassName` relative to the profile. Extra methodology and
@@ -50,11 +51,10 @@ arbitrary keys affect execution.
   `--mechanisms ""` disables all mechanisms.
 - An explicit profile's empty mechanism list also disables mechanisms. Only when
   neither a profile nor `--mechanisms` supplies a list does `MECHANISMS` apply.
-- Explicit Director/worker role flags replace that role's profile configuration.
-  Setting only `--director-model`, for example, uses the CLI role's default
-  provider (Claude), not a different provider from the profile. Pass both provider
-  and model flags when overriding a role. Named role overrides remain more
-  specific than the default-worker configuration.
+- Explicit role flags override the corresponding resolved profile fields.
+  A model-only flag preserves the resolved provider. Changing provider without
+  a model flag selects that provider’s configured default model. Named role
+  overrides remain more specific than the default-worker configuration.
 - Omitting both `--profile` and `--mode` loads `profiles/interactive.toml`.
   `--mode lab` loads `lab`; `--mode swarm` loads `bugbounty` (four workers).
   `--profile bugbounty` explicitly selects swarm.

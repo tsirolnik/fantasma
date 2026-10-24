@@ -212,7 +212,8 @@ class InteractiveSession:
         return True
 
     async def run(self, lines):
-        self.write(f'Interactive profile: {self.profile.name}\n{HELP}')
+        cfg = self.llm_config.get_config('scanner')
+        self.write(f'Interactive profile: {self.profile.name}\nModel provider: {cfg.provider} ({cfg.model or "configured default model"})\n{HELP}')
         try:
             async for line in lines:
                 if not await self.handle(line):

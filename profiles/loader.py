@@ -44,7 +44,7 @@ from profiles import (
     Profile, Topology, LabWorkflow, Interaction, Dashboard,
     BUILTIN_METHODOLOGIES, BUILTIN_TARGET_PROVIDERS, _resolve_class,
 )
-from agents.llm_config import LLMConfigMap, AgentLLMConfig
+from agents.llm_config import LLMConfigMap, AgentLLMConfig, configured_llm_map
 from memory.scoring_policy import ScoringPolicy, DEFAULT_SCORING
 from memory.coordination_policy import CoordinationPolicy, DEFAULT_COORDINATION
 from memory.mechanisms import MECHANISM_REGISTRY
@@ -53,19 +53,17 @@ PROFILES_DIR = Path(__file__).resolve().parent
 
 
 def _resolve_llm(raw: dict) -> LLMConfigMap:
-    """[llm.director] / [llm.default_worker] / [llm.overrides.<agent_name>]
-    each provider="..." model="..." — different models per agent role, e.g.
-    the director on a strong model, workers on a cheap local one. Missing
-    sections keep LLMConfigMap's own defaults (director=claude, workers=ollama)."""
-    cfg = LLMConfigMap()
-    if not raw:
-        return cfg
-    if "director" in raw:
-        cfg.director = AgentLLMConfig(**raw["director"])
-    if "default_worker" in raw:
-        cfg.default_worker = AgentLLMConfig(**raw["default_worker"])
+    """Profile fields override role settings, which inherit LLM_PROVIDER."""
+    cfg = configured_llm_map()
+    def merge(base, spec):
+        provider = spec.get("provider", base.provider)
+        model = spec.get("model", "" if provider != base.provider else base.model)
+        return AgentLLMConfig(provider=provider, model=model)
+    for role in ("director", "default_worker"):
+        if role in raw:
+            setattr(cfg, role, merge(getattr(cfg, role), raw[role]))
     for agent_name, spec in raw.get("overrides", {}).items():
-        cfg.overrides[agent_name] = AgentLLMConfig(**spec)
+        cfg.overrides[agent_name] = merge(cfg.default_worker, spec)
     return cfg
 
 

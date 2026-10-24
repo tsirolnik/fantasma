@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     # LLM
-    llm_provider: str = Field(default="claude", description="claude or ollama")
+    llm_provider: str = Field(default="claude", description="Default provider: claude, ollama, openai, gemini, or vertex")
     anthropic_api_key: str = Field(default="", description="Anthropic API key")
     claude_model: str = Field(default="claude-sonnet-4-6")
     ollama_model: str = Field(default="llama3")
@@ -58,9 +58,9 @@ class Settings(BaseSettings):
     session_budget: float = Field(default=100.0)
 
     # Director/Worker agent system
-    director_llm_provider: str = Field(default="claude", description="LLM provider for the Director agent")
+    director_llm_provider: str = Field(default="", description="Director provider (empty = LLM_PROVIDER)")
     director_llm_model: str = Field(default="", description="Model override for the Director (empty = provider default)")
-    worker_llm_provider: str = Field(default="ollama", description="Default LLM provider for worker agents")
+    worker_llm_provider: str = Field(default="", description="Worker provider (empty = LLM_PROVIDER)")
     worker_llm_model: str = Field(default="", description="Model override for workers (empty = provider default)")
     auto_mode: bool = Field(default=False, description="Run fully unattended (no human checkpoints)")
     pause_points: str = Field(default="", description="Comma-separated pipeline phases to pause at (e.g. discover,analyze)")

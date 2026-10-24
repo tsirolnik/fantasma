@@ -42,6 +42,41 @@ class LLMConfigMap:
         return self.overrides.get(agent_name, self.default_worker)
 
 
+def configured_llm_map() -> LLMConfigMap:
+    """Resolve role settings, falling back to the globally configured provider."""
+    settings = get_settings()
+    return LLMConfigMap(
+        director=AgentLLMConfig(
+            provider=settings.director_llm_provider or settings.llm_provider,
+            model=settings.director_llm_model,
+        ),
+        default_worker=AgentLLMConfig(
+            provider=settings.worker_llm_provider or settings.llm_provider,
+            model=settings.worker_llm_model,
+        ),
+    )
+
+
+def apply_cli_llm_overrides(config: LLMConfigMap, args) -> LLMConfigMap:
+    """Apply explicit flags after profile resolution, preserving unspecified fields."""
+    for role, attr in (("director", "director"), ("worker", "default_worker"),
+                       ("analyzer", None)):
+        provider = getattr(args, f"{role}_llm", None)
+        model = getattr(args, f"{role}_model", None)
+        if provider is None and model is None:
+            continue
+        base = getattr(config, attr) if attr else config.get_config("analyzer")
+        resolved = AgentLLMConfig(
+            provider=provider or base.provider,
+            model=model if model is not None else ("" if provider and provider != base.provider else base.model),
+        )
+        if attr:
+            setattr(config, attr, resolved)
+        else:
+            config.overrides["analyzer"] = resolved
+    return config
+
+
 def create_llm_for_agent(
     agent_name: str,
     config_map: LLMConfigMap,

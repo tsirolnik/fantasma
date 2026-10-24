@@ -6,8 +6,12 @@ for a request; startup does not launch discovery, scanning, a Director, or a lab
 pipeline. Lab is opt-in with `--profile lab`.
 
 Complete [installation](getting-started.md#1-install-the-python-environment),
-then configure your provider. The shipped profile selects Claude for the worker;
-select another configured tool-capable provider explicitly if desired:
+then configure your provider. The shipped profile inherits `LLM_PROVIDER` from
+your environment or `.env`, with `WORKER_LLM_PROVIDER` taking precedence when
+set. For Novita, use `LLM_PROVIDER=openai`, configure `OPENAI_BASE_URL`,
+`OPENAI_API_KEY`, `OPENAI_MODEL`, and pricing, and leave role providers empty
+or set them to `openai`. Restart the CLI after changing `.env`.
+You can also override the provider explicitly:
 
 ```bash
 fantasma full --profile interactive --worker-llm openai --budget 1 --no-browser

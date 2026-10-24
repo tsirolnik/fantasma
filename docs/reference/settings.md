@@ -10,7 +10,7 @@ Not every engine consumes every setting. Default model IDs may no longer be avai
 
 | Variable | Python type | Declared default | Description / constraints |
 | --- | --- | --- | --- |
-| `LLM_PROVIDER` | `<class 'str'>` | `'claude'` | claude or ollama |
+| `LLM_PROVIDER` | `<class 'str'>` | `'claude'` | Default provider: claude, ollama, openai, gemini, or vertex |
 | `ANTHROPIC_API_KEY` | `<class 'str'>` | `''` | Anthropic API key |
 | `CLAUDE_MODEL` | `<class 'str'>` | `'claude-sonnet-4-6'` | See source declaration and consuming components. |
 | `OLLAMA_MODEL` | `<class 'str'>` | `'llama3'` | See source declaration and consuming components. |
@@ -45,9 +45,9 @@ Not every engine consumes every setting. Default model IDs may no longer be avai
 | `HOURLY_RATE` | `<class 'float'>` | `50.0` | See source declaration and consuming components. |
 | `INFRA_HOURLY_COST` | `<class 'float'>` | `0.1` | See source declaration and consuming components. |
 | `SESSION_BUDGET` | `<class 'float'>` | `100.0` | See source declaration and consuming components. |
-| `DIRECTOR_LLM_PROVIDER` | `<class 'str'>` | `'claude'` | LLM provider for the Director agent |
+| `DIRECTOR_LLM_PROVIDER` | `<class 'str'>` | `''` | Director provider (empty = LLM_PROVIDER) |
 | `DIRECTOR_LLM_MODEL` | `<class 'str'>` | `''` | Model override for the Director (empty = provider default) |
-| `WORKER_LLM_PROVIDER` | `<class 'str'>` | `'ollama'` | Default LLM provider for worker agents |
+| `WORKER_LLM_PROVIDER` | `<class 'str'>` | `''` | Worker provider (empty = LLM_PROVIDER) |
 | `WORKER_LLM_MODEL` | `<class 'str'>` | `''` | Model override for workers (empty = provider default) |
 | `AUTO_MODE` | `<class 'bool'>` | `False` | Run fully unattended (no human checkpoints) |
 | `PAUSE_POINTS` | `<class 'str'>` | `''` | Comma-separated pipeline phases to pause at (e.g. discover,analyze) |

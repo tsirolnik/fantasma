@@ -21,5 +21,5 @@ max_tool_calls = 50
 [mechanisms]
 enabled = []
 
-[llm.default_worker]
-provider = "claude"
+# Model selection inherits your environment settings.
+# Add [llm.default_worker] only to override them for this profile.

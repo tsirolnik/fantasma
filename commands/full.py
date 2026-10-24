@@ -126,24 +126,7 @@ async def _run(args, orchestrator, mcp_runtime) -> None:
         return
 
     from agents.pipeline import AgentPipeline
-    from agents.llm_config import LLMConfigMap, AgentLLMConfig
-
-    llm_config = LLMConfigMap()
-    if getattr(args, "director_llm", None) or getattr(args, "director_model", None):
-        llm_config.director = AgentLLMConfig(
-            provider=args.director_llm or llm_config.director.provider,
-            model=getattr(args, "director_model", None) or "",
-        )
-    if getattr(args, "worker_llm", None) or getattr(args, "worker_model", None):
-        llm_config.default_worker = AgentLLMConfig(
-            provider=args.worker_llm or llm_config.default_worker.provider,
-            model=getattr(args, "worker_model", None) or "",
-        )
-    if getattr(args, "analyzer_llm", None) or getattr(args, "analyzer_model", None):
-        llm_config.overrides["analyzer"] = AgentLLMConfig(
-            provider=getattr(args, "analyzer_llm", None) or llm_config.default_worker.provider,
-            model=getattr(args, "analyzer_model", None) or "",
-        )
+    from agents.llm_config import apply_cli_llm_overrides
 
     pause_points = []
     if getattr(args, "pause_at", None):
@@ -190,15 +173,7 @@ async def _run(args, orchestrator, mcp_runtime) -> None:
         profile = load_profile(profile_name)
         if mode is None:
             mode = profile.topology.mode
-        if not (getattr(args, "director_llm", None) or getattr(args, "director_model", None)):
-            llm_config.director = profile.llm.director
-        if not (getattr(args, "worker_llm", None) or getattr(args, "worker_model", None)):
-            llm_config.default_worker = profile.llm.default_worker
-        if not (getattr(args, "analyzer_llm", None) or getattr(args, "analyzer_model", None)):
-            if "analyzer" in profile.llm.overrides:
-                llm_config.overrides["analyzer"] = profile.llm.overrides["analyzer"]
-        for agent_name, cfg in profile.llm.overrides.items():
-            llm_config.overrides.setdefault(agent_name, cfg)
+    llm_config = apply_cli_llm_overrides(profile.llm, args)
 
     if profile.mcp and mode == "lab" and profile.workflow.worker_mode != "tool":
         raise ValueError("Lab MCP requires workflow.worker_mode = tool")
