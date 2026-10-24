@@ -1,12 +1,6 @@
-# The framework's original/default behavior, as a plain config file — this is
-# original/default behavior, with nothing special-cased in code anymore.
-# Run it with: python main.py full --profile profiles/bugbounty.toml ...
-#
-# NOTE: the built-in name "bugbounty" does NOT read this file — load_profile()
-# checks BUILTIN_PROFILES first and returns profiles.BUGBOUNTY (a Python
-# object) without touching disk. This TOML is maintained separately to carry
-# the same values, as the example of "default behavior expressed as data";
-# there is no enforcement that keeps the two in sync if either one changes.
+# Example single-team web security profile.
+# Both --profile bugbounty and --profile profiles/bugbounty.toml load this file.
+# Explicit CLI options override corresponding profile values.
 
 [profile]
 name = "bugbounty"

@@ -1,133 +1,42 @@
 # swarmhound
 
-**A competitive multi-agent framework for autonomous security research.**
+**A composable multi-agent framework for authorized security research.**
 
-swarmhound orchestrates teams of LLM agents that **compete and coordinate** to
-test a target — over Docker-sandboxed security tooling, shared memory, and a
-director that scores and redirects them in real time. It's model-agnostic,
-checkpointable, and fully observable through a live control UI.
+swarmhound runs LLM-driven investigators against a shared scope. A run can use
+one team or several teams, different models by role, configurable scoring, and
+optional incentive mechanisms. Workers choose tools from the evidence they
+collect; a Director reviews progress and can redirect them.
 
-Bug bounty is the batteries-included application built on top: program discovery,
-ROI ranking, scope enforcement, and submittable reports. But the core is the
-**framework** — the orchestration, memory, tooling, and economics — not any one
-target or model.
+The built-in workflows cover web application security research and bug-bounty
+program discovery. Profiles let you change the target source, investigation
+methodology, coordination rules, models, and team structure without changing the
+orchestration code.
 
-> ⚠️ **Authorized testing only.** swarmhound is built for security research against
-> targets you own or are explicitly permitted to test (e.g. an in-scope bug bounty
-> program). See [Legal & Ethical Use](#legal--ethical-use) before running it.
+**Experimental software.** Use only on systems you own or are explicitly
+authorized to test. Findings and generated reports require human review.
 
-![swarmhound live dashboard](docs/dashboard.png)
+![swarmhound dashboard](docs/dashboard.png)
 
-*Live dashboard — competing pentester agents, shared memory, a real-time
-scoreboard, and cost/budget tracking. God-mode lets you steer the swarm mid-run.*
+## What is configurable?
 
----
+A TOML profile describes a run. Named profiles resolve to files in `profiles/`;
+explicit CLI options override the corresponding profile options.
 
-## Why swarmhound
+| Component | Configuration | What it changes |
+|---|---|---|
+| Target provider | `[target]` | Explicit targets, program discovery, or a custom source |
+| Methodology | `[methodology]` | Worker system instructions and optional turn template |
+| Topology | `[topology]` | Engine, teams, and workers per team |
+| Models | `[llm.director]`, `[llm.default_worker]`, `[llm.overrides.*]` | Provider and model by role or agent |
+| Scoring | `[scoring]` | Finding rewards, rejection/duplicate penalties, termination threshold |
+| Coordination | `[coordination]` | Shared/exclusive claims, review cadence, cross-team sharing |
+| Mechanisms | `[mechanisms]` | Optional additional incentives and their parameters |
 
-Most "AI hacker" projects wrap a single agent around a shell. swarmhound is a
-**framework** for running many of them as a coordinated, competitive operation:
-
-- **Two levels of competition.** *Within* a team, pentester agents cooperate
-  through shared memory (claiming work, posting findings, avoiding duplication)
-  while a director scores and redirects them on a live scoreboard. *Across* teams
-  (`--num-teams N` > 1, same `swarm` engine), multiple teams — each with its
-  **own shared memory** — work the same scope. A shared Director reviews
-  workers, while a group monitor checks the shared budget. A **cross-team
-  auditor** re-tests findings concurrently; submission scoring and persistence
-  happen before verification.
-  Cooperation inside teams, rivalry between them.
-- **Sandboxed tooling.** Every CLI security tool (nmap, nuclei, httpx, sqlmap,
-  ffuf, …) runs in a resource-limited Docker container without host filesystem mounts, alongside
-  in-process HTTP and browser primitives. A validator agent re-tests findings.
-- **Memory & resumability.** A 4-layer memory model (persistent store, per-run
-  session, learning, and a knowledge graph) plus checkpoint/resume for long,
-  unattended runs.
-- **Model-agnostic & economical.** Run any provider (Claude, local Ollama, or
-  OpenAI-compatible endpoints like Novita/vLLM) — per-agent. Usage is tracked against an estimated budget. OpenAI-compatible endpoints
-  require configured token prices or an explicit free-endpoint setting.
-- **Observable & steerable.** A live web UI streams events, reasoning, and a
-  scoreboard, with god-mode to redirect the swarm mid-run.
-
-On top of that framework, bug bounty is the built-in domain: program discovery
-and ROI ranking across HackerOne, Bugcrowd, Intigriti, and YesWeHack, scope
-enforcement, and OWASP:2025 / CWE-classified reports.
-
-## Local benchmark
-
-The reusable [benchmark harness](benchmark/README.md) runs the framework against
-intentionally vulnerable local targets. It starts the supplied Docker Compose
-services, runs the selected agents, and records findings, cost and class coverage.
-
-```bash
-# Inspect the generated command without starting targets or making model calls.
-python benchmark/run_benchmark.py --targets juice-shop --dry-run \
-    --director-llm claude --worker-llm claude --analyzer-llm claude \
-    --budget 8 --agents 3 --timeout 2400
-```
-
-See the benchmark guide for installation and a complete run. Results depend on
-the model and configuration. The harness's class-match metric is not proof that
-an individual finding is exploitable. Personal run results and model-training
-experiments are not distributed with the framework.
-
-## Profiles — composable run configuration
-
-Every pluggable piece of a run — how agents think, what's in scope, scoring
-values, the optional game-theory mechanism layer, agent-connectivity rules,
-per-agent LLM selection, and topology — bundles into one `Profile`
-(`profiles/`), loadable from Python or a plain TOML file. The framework's
-original/default behavior is `profiles/bugbounty.toml`: not a special case in
-code, just data.
-
-```bash
-python main.py full --profile profiles/bugbounty.toml --targets <scope> --auto
-python main.py full --profile profiles/competitive.toml --targets <scope> --auto   # multi-team, tuned mechanisms
-```
-
-| Piece | Config | Built-ins | Extend with |
-|---|---|---|---|
-| Methodology (how agents think) | `[methodology] type=` | `pentest`, `redteam` | `module:ClassName`, plus free-form config |
-| Target source | `[target] provider=` | `auto`, `direct`, `bugbounty` | `module:ClassName` |
-| Scoring | `[scoring]` | severity reward, rejection/duplicate penalty, termination threshold | plain data |
-| Coordination | `[coordination]` | claim exclusivity, director review cadence, cross-team sharing | plain data |
-| Mechanisms (additive game-theory layer) | `[mechanisms]` | `first_finder_bonus`, `duplicate_escalation`, `team_rivalry_pool`, `relative_rank_bonus`, `target_bidding`, `visibility_toggle`, `idle_tax` — each with tunable knobs | `class = "module:ClassName"` |
-| LLM per agent | `[llm.director]` / `[llm.default_worker]` / `[llm.overrides.<name>]` | any configured provider | — |
-| Topology | `[topology]` | `mode` (`swarm`/`lab`), `agents_per_team`, `num_teams` (>1 = cross-team competition, same engine — not a separate mode) | — |
-
-CLI flags always override a profile's values when given explicitly — a
-profile sets defaults, not a lock. `GET /api/profile` exposes the resolved
-configuration for a dashboard or any other consumer. See
-[`docs/architecture.md`](docs/architecture.md) for the full breakdown.
-
-## Features
-
-- **Program discovery & ROI model** — pulls live scope data, ranks programs by
-  expected value vs. scan cost.
-- **Agentic tool use** — agents drive Docker-isolated security tools (nmap,
-  nuclei, httpx, subfinder, katana, ffuf, sqlmap, nikto, dig, curl) plus HTTP,
-  DNS, and browser primitives.
-- **Multi-agent modes** — `swarm` (optionally multi-team via `--num-teams`) and `lab` orchestration.
-- **4-layer memory** — persistent SQLite store, per-run session memory, a
-  learning layer that adapts from outcomes, and an optional FalkorDB knowledge
-  graph.
-- **Checkpoint & resume** — long runs auto-checkpoint and can resume after a
-  crash or interrupt.
-- **Pluggable LLMs** — Claude, local models via Ollama, and any
-  OpenAI-compatible endpoint (vLLM, Novita, etc.). Providers can be set
-  per-agent (director / worker / analyzer).
-- **Web dashboard** — real-time event stream, reasoning traces, checkpoints, and
-  human-in-the-loop prompts over WebSocket.
-- **Browser automation** — shared Chromium pool via Playwright.
-- **Reporting** — Jinja2-templated Markdown reports from findings, classified by
-  OWASP Top 10:2025 + CWE.
-
-## Architecture
-
-swarmhound composes a run from configurable strategies and policies, then adapts
-through tool-result, Director-review, scoring and worker-replacement loops.
-[Open the detailed diagrams](docs/architecture.html) in a browser to see both
-component composition and runtime feedback (rendering requires internet access).
+Target providers and methodologies accept built-in names or custom
+`module:ClassName` implementations. Mechanisms also support custom classes and
+constructor parameters. Custom classes execute Python code: load profiles you
+trust. Tool registries are composed in Python; a methodology changes prompts,
+not the underlying set of tools by itself.
 
 ```mermaid
 flowchart TB
@@ -149,140 +58,167 @@ flowchart TB
     class PROFILE,LOAD,POLICY,TOPO config;
 ```
 
-```mermaid
-flowchart TB
-    CONTEXT["Rebuild worker context<br/>Scope, budget, facts, leads, last results"] --> LLM["Worker LLM chooses next action"]
-    LLM --> TOOL["Tool registry + execution checks"]
-    TOOL --> EXEC["HTTP / browser / Docker / code<br/>Interact with target systems"]
-    EXEC -->|"Result / error / evidence"| STATE["Agent-local observations and distilled state"]
-    STATE -->|"Next turn"| CONTEXT
+Example profiles:
 
-    TOOL <-->|"Memory tools: claim, read, post, submit"| MEMORY[("Per-team SharedMemory<br/>Feed, claims, findings, scores")]
-    MEMORY -->|"Submission / claim events"| HOOK["Configured mechanism hooks<br/>Additional rewards, penalties, feedback"]
-    HOOK -->|"Score effects / messages"| MEMORY
+- [`bugbounty.toml`](profiles/bugbounty.toml): one team, four workers, baseline scoring.
+- [`competitive.toml`](profiles/competitive.toml): three teams of three workers,
+  shared claims and additional incentives.
+- [`redteam.toml`](profiles/redteam.toml): direct targets with an internal
+  red-team methodology.
 
-    MEMORY -->|"Progress and scores"| MON["Team monitor"]
-    STATE -->|"Recent tool activity"| MON
-    MON -->|"Periodic review"| DIR["Shared Director"]
-    DIR -->|"Redirects + score changes"| MON
-    MON -->|"Directive queue → worker notes"| CONTEXT
-    MON -->|"Apply score changes"| MEMORY
-    MON -->|"Score below configured threshold"| REPLACE["Cancel worker, release claims<br/>Spawn replacement within slot limit"]
-    REPLACE -->|"New worker uses prior shared work"| CONTEXT
+Profiles are loaded at startup, not hot-reloaded. Omitting `--profile` uses
+code defaults rather than loading `bugbounty.toml`. Use a profile or an explicit
+`--mode swarm` when you want the swarm engine.
 
-    MEMORY -->|"First finding launches verification"| VAL["Validator / cross-team auditor"]
-    VAL -->|"Re-test with tools"| EXEC
-    EXEC -->|"Verification evidence"| VAL
-    VAL -->|"Update finding verdict in memory"| MEMORY
+## How a swarm run works
 
-    MEMORY -->|"Accepted submission"| STORE[("SQLite + optional graph<br/>Persist before verification")]
-    MEMORY -->|"Run ends"| END["Run-end mechanism hooks<br/>Collect findings, synthesize chains, debrief"]
-    END --> REPORT["ReportWorker → Markdown reports"]
-    classDef feedback fill:#e6f5ee,stroke:#338466,color:#133c2b;
-    class CONTEXT,STATE,MON,DIR,REPLACE feedback;
-    classDef extension fill:#eef2ff,stroke:#6366f1,color:#20204a;
-    class HOOK extension;
-```
+1. **Resolve scope.** Use explicit targets or discover programs and ask the
+   Director to select them. The pipeline enriches scope where available.
+2. **Investigate.** Each worker calls its LLM to choose tools, processes the
+   results, and rebuilds its next-turn context. Workers coordinate through
+   their team's claims, notes and findings.
+3. **Respond to progress.** Team monitors ask the shared Director for redirects
+   and score adjustments. Workers below the configured score threshold can be
+   terminated and replaced, subject to replacement limits.
+4. **Re-test findings.** A validator starts after findings appear. Multi-team
+   runs use a cross-team auditor reading a merged view of team findings.
+5. **Collect and report.** The pipeline collects findings, optionally synthesizes
+   attack chains, requests a Director debrief and generates Markdown reports.
 
-Profiles select components at startup; they are not hot-reloaded. Each team has
-its own memory and workers, while the Director, cost tracker and storage are
-shared. Findings persist on submission before validation. See the HTML reference
-for hook coverage, live dashboard controls and implementation boundaries.
+Teams have separate SharedMemory instances but share the Director, cost tracker,
+message bus and persistent storage. The optional knowledge graph is shared too.
+Submission scoring and persistence happen **before validation**; the report
+handoff is not a verified-only gate.
 
-## Requirements
+The `lab` engine instead runs discovery, recon, scan, analysis and reporting
+stages. Not every swarm profile feature is consumed by that path.
 
-- Python 3.13+
-- [Docker](https://www.docker.com/) — required for the isolated CLI tool sandbox
-- (Optional) [Ollama](https://ollama.com/) for local models
-- (Optional) [FalkorDB](https://www.falkordb.com/) for the knowledge graph
+See the [architecture reference](docs/architecture.md) for runtime feedback
+loops, extension hooks and current limitations. The same diagrams are available
+as an [HTML page](docs/architecture.html); download/open it in a browser with
+internet access to render Mermaid.
 
-## Quickstart
+## Install
+
+Requirements: Python 3.13+, Docker with Compose, and a configured LLM provider.
+Playwright supplies the browser used by browser tools.
 
 ```bash
 git clone https://github.com/tsirolnik/swarmhound.git
 cd swarmhound
-
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
-
-# Configure
-cp .env.example .env   # then edit .env with your keys / settings
-
-# Build the isolated tool image (used by the security tools)
+cp .env.example .env
 docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
 ```
 
-At minimum set an LLM provider in `.env` (e.g. `ANTHROPIC_API_KEY`, or point
-`OLLAMA_BASE_URL` at a local Ollama). Platform API tokens are optional and only
-enhance program discovery.
+Edit `.env` before running. The example below uses Claude for all agent roles:
+set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.
 
-## Usage
+Providers implemented in the code are `claude`, `ollama`, `openai`
+(OpenAI-compatible endpoints), `gemini`, and `vertex`. Set per-role providers
+through a profile or the `--director-llm`, `--worker-llm` and `--analyzer-llm`
+flags. Setting `LLM_PROVIDER` alone does not configure every role in `full`.
+Without role overrides, the configuration map defaults to a Claude Director
+and Ollama workers.
 
-swarmhound is a CLI (`python main.py <command>`):
+OpenAI-compatible endpoints also need `OPENAI_INPUT_PRICE` and
+`OPENAI_OUTPUT_PRICE` in USD per million tokens, or an explicit
+`OPENAI_FREE_ENDPOINT=true` for a genuinely free endpoint. Ollama requires a
+running server and a downloaded model matching `OLLAMA_MODEL`.
+
+FalkorDB is optional. Graph support defaults to enabled and attempts to start a
+local container; set `FALKORDB_ENABLED=false` in `.env` to disable it.
+See [`.env.example`](.env.example) for common settings and [config.py](config.py)
+for the full settings schema.
+
+## Start with the local lab
+
+The benchmark runner manages its own pinned Juice Shop container and network.
+Keep port 3000 available; do not start a separate target container first.
 
 ```bash
-# Find high-ROI programs to work
-python main.py discover
+# Preview only: no target startup and no model calls.
+python benchmark/run_benchmark.py --targets juice-shop --dry-run \
+    --director-llm claude --worker-llm claude --analyzer-llm claude \
+    --budget 8 --agents 3 --timeout 2400
 
-# Scan a single target
-python main.py scan --target example.com
-
-# Run the full pipeline (discovery → recon → scan → analyze → report)
-python main.py full --mode swarm --swarm-agents 4 --web
-
-# Show cost breakdown and learning insights
-python main.py costs
-python main.py learning
-
-# Generate a report from findings
-python main.py report --findings output/findings.json
+# Execute against the local target; this makes paid model calls.
+python benchmark/run_benchmark.py --targets juice-shop \
+    --director-llm claude --worker-llm claude --analyzer-llm claude \
+    --budget 8 --agents 3 --timeout 2400
 ```
 
-Other commands: `fuzz`, `history`, `record-outcome`, `validate`, `graph-sync`.
-Run `python main.py <command> --help` for full flags.
+The runner waits for target health, launches the swarm, writes results under
+`benchmark/results/`, then stops the target. Findings and coverage vary; zero
+findings is a possible outcome. Its class-match metric, named `precision` in
+output, does not establish that a reported instance is exploitable.
+See the [benchmark guide](benchmark/README.md) for details and cleanup.
 
-Add `--web` to launch the dashboard (port configurable with `--web-port`).
-Enter the access token printed in the server terminal on the login page.
-Set `WEB_AUTH_TOKEN` to reuse a token; otherwise it changes at each startup.
-Keep the default localhost binding. External clients, including event-ingest
-hooks, must send `Authorization: Bearer <token>`; WebSockets also require a
-matching Origin. A token grants access to findings and run controls.
+## Run a profile
 
-Scope filtering rejects recognized out-of-scope hosts, including mixed-host
-calls. It is not a network firewall: dynamically constructed destinations,
-redirects and browser subrequests need external network controls if strict scope
-is required. Docker bridge networking can reach host/LAN addresses. Use an
-isolated lab for evaluation.
+For your own authorized target, replace the example domain below:
 
-## Configuration
+```bash
+python main.py full --profile bugbounty \
+    --targets your-authorized-target.example \
+    --director-llm claude --worker-llm claude --analyzer-llm claude \
+    --budget 8 --web
+```
 
-Configuration comes from settings/environment, optional TOML profiles, and CLI
-overrides. See [`.env.example`](.env.example) for common environment settings.
-Budget accounting is an estimate, not a provider-side spending limit; concurrent
-requests may overshoot it.
+Switch to `--profile competitive` for the multi-team example. Override its team
+and worker counts with `--num-teams` and `--swarm-agents`. Leave out `--targets`
+with the `auto` target provider to use program discovery instead. Review the
+program's actual authorization and scope before testing.
 
-## Legal & Ethical Use
+With `--web`, open the dashboard address shown in the terminal and enter the
+printed access token. The dashboard displays activity and supports run controls
+and directives. `WEB_AUTH_TOKEN` supplies a reusable token; otherwise one is
+generated at startup. Keep the default localhost binding. API clients must use
+Bearer authentication; WebSockets also require a matching Origin.
 
-swarmhound is a security **research** tool. You are responsible for how you use
-it.
+Other entry points:
 
-- Only run it against systems you **own** or are **explicitly authorized** to
-  test — for example, assets that are in scope for a bug bounty program you are
-  enrolled in.
-- Respect each program's scope, rate limits, and rules of engagement. The tool
-  provides scope enforcement and rate limiting, but the responsibility is yours.
-- Unauthorized scanning or exploitation of systems is illegal in most
-  jurisdictions.
+```bash
+python main.py --help
+python main.py full --help
+python main.py full --list-checkpoints
+python main.py costs
+python main.py history
+```
 
-The authors accept no liability for misuse or for any damage caused by this
-software. See [LICENSE](LICENSE).
+Saved swarm checkpoints can be selected with `full --resume` or
+`--resume-scan NAME_OR_ID`. Reapply the intended profile and provider settings;
+checkpoint support is not a promise of seamless recovery for every topology.
 
-## Status
+## Boundaries
 
-swarmhound is an experimental research framework. Interfaces may change.
-Binary fuzzing and autonomous investigation need operator supervision.
+- **Scope checks are application checks.** They reject recognized out-of-scope
+  hosts but cannot enforce egress for arbitrary code, redirects or browser
+  subrequests. Use external network controls where strict boundaries are needed.
+- **Tools run in different places.** CLI tools and generated code run in
+  resource-limited Docker containers without host filesystem mounts. HTTP and
+  browser tools run in the host process. Docker bridge networking is not a
+  host/LAN firewall.
+- **Budgets are estimates.** Pricing, usage reporting and concurrent calls can
+  cause overshoot. Use provider-side limits as well.
+- **Outputs are evidence to review.** Neither model-generated verdicts nor
+  benchmark class matching establishes correctness. Competition improving
+  investigation quality remains a research question.
+- **Logs can contain sensitive material.** Runtime data and reports are ignored
+  by Git, but you must review them before sharing.
+
+## Development
+
+```bash
+python -m unittest discover -s tests
+```
+
+The suite includes regression checks for dashboard authentication, scope
+matching, configured pricing, Docker cleanup and pipeline controls. It does
+not replace an end-to-end run with your chosen models and environment.
 
 ## License
 
