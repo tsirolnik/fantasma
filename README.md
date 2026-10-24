@@ -171,11 +171,12 @@ set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.
 Providers implemented in the code are `claude`, `ollama`, `openai`
 (OpenAI-compatible endpoints), `gemini`, and `vertex`. Set per-role providers
 through a profile or the `--director-llm`, `--worker-llm` and `--analyzer-llm`
-flags. The interactive profile inherits `LLM_PROVIDER`; use `openai` for Novita.
+flags. Every shipped profile explicitly uses `[llm] source = "env"` to load models
+and providers from `.env`; use `LLM_PROVIDER=openai` for Novita.
 Role settings (`DIRECTOR_LLM_PROVIDER`, `WORKER_LLM_PROVIDER`) override that
 default. Explicit profile LLM fields override environment defaults, and CLI
-role flags take precedence over profile fields. The lab and bugbounty profiles
-include explicit role providers; inspect a profile before running it.
+role flags take precedence over profile fields. Process environment variables
+take precedence over `.env` values.
 
 OpenAI-compatible endpoints also need `OPENAI_INPUT_PRICE` and
 `OPENAI_OUTPUT_PRICE` in USD per million tokens, or an explicit

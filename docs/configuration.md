@@ -27,6 +27,7 @@ starts a real run. TOML can import Python extensions, including during inspectio
 | `scoring` | `default_accepted = 10`, `rejected = -10`, `duplicate = -5`, `termination_threshold = -50` | Shared-memory base scoring and worker termination |
 | `scoring.accepted` | critical 50, high 30, medium 15, low 5 | Severity rewards; a supplied table replaces the whole map, omitted severities use `default_accepted` |
 | `coordination` | `claim_mode = "exclusive"`, `director_review_interval_s = 30`, `cross_team_sharing = true` | Swarm claims/review; cross-team sharing matters only with multiple teams |
+| `llm` | `source = "env"` (also the default when omitted) | Load providers/models from `.env` and process environment |
 | `llm.director` | Inherits Director environment settings | Director provider/model |
 | `llm.default_worker` | Inherits worker environment settings | Default worker provider/model |
 | `llm.overrides.<agent_name>` | Each table has `provider` and `model` | Role override by lookup key, not necessarily runtime agent ID; missing fields inherit the default worker |
@@ -34,8 +35,9 @@ starts a real run. TOML can import Python extensions, including during inspectio
 An empty model string selects the provider's configured default. Provider
 credentials, endpoint URLs and pricing come from settings/environment; see
 [`.env.example`](../.env.example). Role provider settings inherit `LLM_PROVIDER` when empty. Explicit profile fields
-override environment settings. The interactive profile does not pin a provider;
-other shipped profiles can explicitly select providers.
+override environment settings. Every shipped profile explicitly declares `[llm] source = "env"` and pins no
+provider or model. Process environment variables override `.env`. Custom profiles
+can add role tables to override individual fields; no other `source` is supported.
 
 Methodologies and target providers accept `module.path:ClassName`; mechanisms
 also accept `./file.py:ClassName` relative to the profile. Extra methodology and

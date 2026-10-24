@@ -54,6 +54,9 @@ PROFILES_DIR = Path(__file__).resolve().parent
 
 def _resolve_llm(raw: dict) -> LLMConfigMap:
     """Profile fields override role settings, which inherit LLM_PROVIDER."""
+    source = raw.get("source", "env")
+    if source != "env":
+        raise ValueError(f"Unsupported llm.source: {source!r}; expected 'env' (.env/environment)")
     cfg = configured_llm_map()
     def merge(base, spec):
         provider = spec.get("provider", base.provider)

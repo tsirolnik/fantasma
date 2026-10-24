@@ -17,8 +17,6 @@ stages = ["recon", "scan", "analyze", "report"]
 worker_mode = "auto"
 max_scan_targets = 50
 
-[llm.director]
-provider = "claude"
-
-[llm.default_worker]
-provider = "ollama"
+[llm]
+# Load providers and models from .env (process environment takes precedence).
+source = "env"

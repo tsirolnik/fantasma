@@ -44,3 +44,31 @@ class LLMResolutionTests(unittest.TestCase):
                                'overrides': {'scanner': {'model': 'scanner-model'}}})
         self.assertEqual(config.get_config('scanner').provider, 'openai')
         self.assertEqual(config.get_config('scanner').model, 'scanner-model')
+
+    def test_every_shipped_profile_explicitly_loads_dotenv(self):
+        import os
+        import tempfile
+        import tomllib
+        from pathlib import Path
+        from profiles.loader import PROFILES_DIR
+        with tempfile.TemporaryDirectory() as directory:
+            env = Path(directory) / '.env'
+            env.write_text('LLM_PROVIDER=openai\nDIRECTOR_LLM_MODEL=director-test\n'
+                           'WORKER_LLM_MODEL=worker-test\n')
+            with patch.dict(os.environ, {}, clear=True):
+                settings = Settings(_env_file=env)
+            with patch('agents.llm_config.get_settings', return_value=settings):
+                for path in PROFILES_DIR.glob('*.toml'):
+                    with self.subTest(profile=path.stem):
+                        raw = tomllib.loads(path.read_text())
+                        self.assertEqual(raw['llm'], {'source': 'env'})
+                        config = load_profile(str(path)).llm
+                        self.assertEqual(config.director.provider, 'openai')
+                        self.assertEqual(config.director.model, 'director-test')
+                        for role in ('scanner', 'analyzer', 'validator', 'recon'):
+                            self.assertEqual(config.get_config(role).provider, 'openai')
+                            self.assertEqual(config.get_config(role).model, 'worker-test')
+
+    def test_unknown_source_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'llm.source'):
+            _resolve_llm({'source': 'typo'})

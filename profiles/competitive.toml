@@ -58,20 +58,6 @@ high = 30
 medium = 15
 low = 5
 
-# Per-agent LLM selection — the director reasons on a stronger model than the
-# workers that just need to drive tools; the analyzer gets its own override.
-[llm.director]
-provider = "claude"
-model = ""  # Use the configured provider default; set a model to override.
-
-[llm.default_worker]
-provider = "ollama"
-model = ""  # Uses OLLAMA_MODEL from settings.
-
-[llm.overrides.analyzer]
-provider = "claude"
-model = ""  # Use the configured provider default.
-
 # "shared" claims: multiple agents MAY work the same in-scope target at once
 # (first_finder_bonus above already makes colliding pointless, so there's no
 # need for an exclusive lock that would idle agents once targets < agents).
@@ -81,3 +67,7 @@ model = ""  # Use the configured provider default.
 claim_mode = "shared"
 director_review_interval_s = 20
 cross_team_sharing = true
+
+[llm]
+# Load providers and models from .env (process environment takes precedence).
+source = "env"

@@ -21,5 +21,6 @@ max_tool_calls = 50
 [mechanisms]
 enabled = []
 
-# Model selection inherits your environment settings.
-# Add [llm.default_worker] only to override them for this profile.
+[llm]
+# Load providers and models from .env (process environment takes precedence).
+source = "env"
