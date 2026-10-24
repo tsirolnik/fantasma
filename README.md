@@ -288,3 +288,9 @@ not replace an end-to-end run with your chosen models and environment.
 [MIT](LICENSE) © Yehonatan Tsirolnik
 
 MCP plugins: see [setup, IDA connection examples, and configuration reference](docs/mcp.md).
+
+## Contributing and reporting vulnerabilities
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks, and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting.
+[Release notes](docs/releases/v0.1.0.md) describe the initial release and limitations.
