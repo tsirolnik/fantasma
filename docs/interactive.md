@@ -11,7 +11,14 @@ and inherits `LLM_PROVIDER` from
 your environment or `.env`, with `WORKER_LLM_PROVIDER` taking precedence when
 set. For Novita, use `LLM_PROVIDER=openai`, configure `OPENAI_BASE_URL`,
 `OPENAI_API_KEY`, `OPENAI_MODEL`, and pricing, and leave role providers empty
-or set them to `openai`. Restart the CLI after changing `.env`.
+or set them to `openai`. Leave `WORKER_LLM_MODEL` empty to use `OPENAI_MODEL`;
+an old role-model override (for example, an Ollama model name) otherwise wins.
+Likewise, leave `DIRECTOR_LLM_MODEL` empty to use the Director provider's default.
+Restart the CLI after changing `.env`.
+
+Invalid-model, authentication, billing, and other non-context API failures stop
+the request and return control to the session. OpenAI-compatible context overflow
+can trigger compression, with at most two recovery attempts.
 You can also override the provider explicitly:
 
 ```bash

@@ -359,6 +359,7 @@ class ToolAgent(BaseAgent):
         else:
             tool_schemas = self.tools.to_anthropic_schema()
         consecutive_errors = 0
+        consecutive_api_errors = 0
 
         for iteration in range(self.max_iterations):
             trace.iterations = iteration + 1
@@ -588,6 +589,9 @@ class ToolAgent(BaseAgent):
 
             if not tool_blocks and ("[TIMEOUT]" in _full_text or "[API ERROR]" in _full_text):
                 error_type = "timed out" if "[TIMEOUT]" in _full_text else "API error"
+                consecutive_api_errors += 1
+                if consecutive_api_errors >= 3:
+                    raise RuntimeError(f"LLM failed after 3 consecutive API errors: {_full_text}")
                 logger.warning(
                     "%s: LLM %s at iteration %d — compressing context (%d msgs) and retrying",
                     self.name, error_type, iteration + 1, len(messages),
@@ -601,6 +605,8 @@ class ToolAgent(BaseAgent):
                 )
                 consecutive_errors += 1
                 continue  # retry with compressed context
+
+            consecutive_api_errors = 0
 
             if not tool_blocks:
                 # Before finishing, check for pending director directives

@@ -127,7 +127,18 @@ class OpenAICompatibleProvider(LLMProvider):
                 logger.error("OpenAI-compat API error: %s — request dumped to %s", e, dump_path)
             except Exception:
                 logger.error("OpenAI-compat API error: %s (could not dump request)", e)
-            # Return error as text so the agent loop can continue instead of crashing
+            # Only context overflow can be repaired by compressing history.
+            # The SDK already retries transient failures. Surface all other errors
+            # (including invalid models, credentials and billing) to the session.
+            body = str(getattr(e, "body", "")).lower()
+            context_overflow = getattr(e, "status_code", None) in (400, 413) and any(
+                marker in body for marker in (
+                    "context_length_exceeded", "maximum context length",
+                    "context window exceeded",
+                )
+            )
+            if not context_overflow:
+                raise
             return {
                 "content": [{"type": "text", "text": f"[API ERROR] {type(e).__name__}: {e}"}],
                 "thinking": "",
