@@ -1,0 +1,214 @@
+{
+  "$defs": {
+    "OwaspCategory": {
+      "description": "OWASP Top 10:2025 (final edition, released Jan 2026). NOTE 2025 != 2021:\nSSRF merged into A01, Injection is A05, Security Misconfiguration is A02.",
+      "enum": [
+        "A01:broken_access_control",
+        "A02:security_misconfiguration",
+        "A03:software_supply_chain_failures",
+        "A04:cryptographic_failures",
+        "A05:injection",
+        "A06:insecure_design",
+        "A07:auth_failures",
+        "A08:integrity_failures",
+        "A09:logging_alerting_failures",
+        "A10:mishandling_exceptional_conditions",
+        "other"
+      ],
+      "title": "OwaspCategory",
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "info",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "VerificationStatus": {
+      "enum": [
+        "unverified",
+        "verified",
+        "disproved",
+        "inconclusive"
+      ],
+      "title": "VerificationStatus",
+      "type": "string"
+    },
+    "VulnType": {
+      "enum": [
+        "subdomain_takeover",
+        "info_disclosure",
+        "cors_misconfiguration",
+        "missing_security_headers",
+        "open_redirect",
+        "memory_corruption",
+        "secret_exposure",
+        "sensitive_path",
+        "known_cve",
+        "misconfiguration",
+        "attack_chain",
+        "sql_injection",
+        "nosql_injection",
+        "xss",
+        "command_injection",
+        "file_inclusion",
+        "xxe",
+        "ssrf",
+        "broken_access_control",
+        "broken_authentication",
+        "mass_assignment",
+        "csrf",
+        "insecure_deserialization",
+        "business_logic",
+        "rate_limiting"
+      ],
+      "title": "VulnType",
+      "type": "string"
+    }
+  },
+  "description": "Represents a discovered vulnerability \u2014 atomic OR a chain.",
+  "properties": {
+    "id": {
+      "default": -1,
+      "title": "Id",
+      "type": "integer"
+    },
+    "target": {
+      "title": "Target",
+      "type": "string"
+    },
+    "vuln_type": {
+      "$ref": "#/$defs/VulnType"
+    },
+    "owasp": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OwaspCategory"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "cwe_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cwe Id"
+    },
+    "severity": {
+      "$ref": "#/$defs/Severity",
+      "default": "info"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "evidence": {
+      "default": "",
+      "title": "Evidence",
+      "type": "string"
+    },
+    "url": {
+      "default": "",
+      "title": "Url",
+      "type": "string"
+    },
+    "poc": {
+      "default": "",
+      "title": "Poc",
+      "type": "string"
+    },
+    "impact": {
+      "default": "",
+      "title": "Impact",
+      "type": "string"
+    },
+    "composed_of": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Composed Of",
+      "type": "array"
+    },
+    "chain_narrative": {
+      "default": "",
+      "title": "Chain Narrative",
+      "type": "string"
+    },
+    "reproducible": {
+      "default": false,
+      "title": "Reproducible",
+      "type": "boolean"
+    },
+    "verification_status": {
+      "$ref": "#/$defs/VerificationStatus",
+      "default": "unverified"
+    },
+    "verification_details": {
+      "default": "",
+      "title": "Verification Details",
+      "type": "string"
+    },
+    "confidence_score": {
+      "default": 0.0,
+      "title": "Confidence Score",
+      "type": "number"
+    },
+    "estimated_bounty": {
+      "default": 0.0,
+      "title": "Estimated Bounty",
+      "type": "number"
+    },
+    "ai_severity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Severity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "ai_exploitability": {
+      "default": "",
+      "title": "Ai Exploitability",
+      "type": "string"
+    },
+    "ai_false_positive_likelihood": {
+      "default": 0.0,
+      "title": "Ai False Positive Likelihood",
+      "type": "number"
+    },
+    "ai_bounty_estimate": {
+      "default": 0.0,
+      "title": "Ai Bounty Estimate",
+      "type": "number"
+    }
+  },
+  "required": [
+    "target",
+    "vuln_type"
+  ],
+  "title": "VulnFinding",
+  "type": "object"
+}

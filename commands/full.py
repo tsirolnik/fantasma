@@ -1,12 +1,4 @@
-"""The 'full' command — discovery through reporting, driven by a Profile.
-
-This is the one command where the only true primitive is "an agent (harness)
-with its exposed tools": AgentPipeline / SwarmPipeline just wire up whichever
-Methodology, TargetProvider, ScoringPolicy, mechanisms, and topology a Profile
-names (built-in or TOML) onto that harness. Nothing here hardcodes a "mode"
-beyond swarm/lab, and multi-team competition is purely `num_teams > 1` on the
-same swarm engine — never a separate code path.
-"""
+"""Resolve a profile and launch interactive, swarm, or explicit sequential lab work."""
 from __future__ import annotations
 
 from config import override_settings
@@ -15,6 +7,8 @@ from commands.base import Arg, register
 _LLM_CHOICES = ["claude", "gemini", "ollama", "openai", "vertex"]
 
 ARGS = [
+    Arg(("--interaction",), dict(choices=["batch", "terminal", "web"], default=None,
+                                 help="Override terminal/batch interaction; legacy web enables the dashboard")),
     Arg(("--top",), dict(type=int, default=5, help="Number of top programs to target")),
     Arg(("--min-bounty",), dict(type=float, default=50.0, help="Minimum bounty threshold in USD")),
     Arg(("--budget",), dict(type=float, default=None, help="Maximum session budget in USD")),
@@ -30,8 +24,8 @@ ARGS = [
     Arg(("--pause-at",), dict(default=None, help="Comma-separated phases to pause at (e.g. discover,analyze)")),
     Arg(("--cli-tools",), dict(action="store_true",
                                 help="Use CLI-style single 'run' tool to reduce context token usage (~45K tokens saved per run)")),
-    Arg(("--mode",), dict(choices=["swarm", "lab"], default=None,
-                           help="Pipeline engine: 'swarm' (N pen-testers, optionally across multiple "
+    Arg(("--mode",), dict(choices=["pentester", "interactive", "swarm", "lab"], default=None,
+                           help="Execution engine: pentester (interactive is a compatibility alias), or swarm (N pen-testers across multiple "
                                 "competing teams — set --num-teams > 1 for that, not a separate mode "
                                 "value) or 'lab' (sequential specialized agents)")),
     Arg(("--swarm-agents",), dict(type=int, default=None,
@@ -47,9 +41,9 @@ ARGS = [
                                       "baseline). Overrides the --profile's mechanisms if both are given.")),
     Arg(("--profile",), dict(type=str, default=None,
                               help="Run configuration: methodology, target source, scoring, mechanisms, topology. "
-                                   "Built-in name ('bugbounty', 'redteam') or a path to a .toml file "
-                                   "(see profiles/bugbounty.toml for the schema). Default: bugbounty behavior, "
-                                   "unchanged. Explicit CLI flags (--mode, --mechanisms, etc.) override the profile.")),
+                                   "Built-in name ('interactive', 'lab', 'bugbounty', 'redteam') or a path to a .toml file "
+                                   "(see profiles/bugbounty.toml for the schema). Default: interactive profile, "
+                                   "selected from profiles/interactive.toml. Explicit CLI flags (--mode, --mechanisms, etc.) override the profile.")),
     Arg(("--ollama-per-agent",), dict(action="store_true",
                                        help="Spawn a separate Ollama instance per swarm agent (for models that don't support OLLAMA_NUM_PARALLEL)")),
     Arg(("--domain-triage",), dict(action="store_true",
@@ -98,6 +92,12 @@ def _attach_tool_hooks(pipeline, bridge) -> None:
 
 @register("full", "Run the full pipeline", args=ARGS)
 async def run(args, orchestrator) -> None:
+    from agents.mcp_runtime import MCPRuntime
+    async with MCPRuntime() as mcp_runtime:
+        await _run(args, orchestrator, mcp_runtime)
+
+
+async def _run(args, orchestrator, mcp_runtime) -> None:
     import json
     from datetime import datetime as _dt
 
@@ -180,9 +180,14 @@ async def run(args, orchestrator) -> None:
     # as one bundle. Explicit CLI flags below still override it — a profile
     # sets DEFAULTS, not a hard lock.
     profile = None
-    if getattr(args, "profile", None):
+    profile_name = getattr(args, "profile", None)
+    if profile_name is None:
+        profile_name = "interactive" if mode in (None, "interactive", "pentester") else mode
+        if profile_name == "swarm":
+            profile_name = "bugbounty"
+    if profile_name:
         from profiles.loader import load_profile
-        profile = load_profile(args.profile)
+        profile = load_profile(profile_name)
         if mode is None:
             mode = profile.topology.mode
         if not (getattr(args, "director_llm", None) or getattr(args, "director_model", None)):
@@ -194,6 +199,12 @@ async def run(args, orchestrator) -> None:
                 llm_config.overrides["analyzer"] = profile.llm.overrides["analyzer"]
         for agent_name, cfg in profile.llm.overrides.items():
             llm_config.overrides.setdefault(agent_name, cfg)
+
+    if profile.mcp and mode == "lab" and profile.workflow.worker_mode != "tool":
+        raise ValueError("Lab MCP requires workflow.worker_mode = tool")
+    if profile.mcp and not getattr(args, "dry_run", False):
+        await mcp_runtime.connect(profile.mcp)
+        print(f"MCP: loaded {len(mcp_runtime.tools)} tools from {len(profile.mcp)} servers")
 
     # CLI flags win when explicitly given; otherwise fall back to the
     # profile's topology. "group mode" is just num_teams > 1 on the same
@@ -214,11 +225,29 @@ async def run(args, orchestrator) -> None:
             raise ValueError(f"Unknown --mechanisms: {unknown}. Known: {sorted(MECHANISM_REGISTRY)}")
         mechanisms_spec = requested
         override_settings(mechanisms=args.mechanisms)
-    elif profile is not None and profile.mechanisms:
+    elif profile is not None:
         mechanisms_spec = profile.mechanisms
 
     if getattr(args, "ollama_per_agent", False):
         override_settings(ollama_per_agent=True)
+
+    if mode == "interactive":  # compatibility alias
+        mode = "pentester"
+    interaction_mode = getattr(args, "interaction", None) or profile.interaction.mode
+    use_web = use_web or profile.dashboard.enabled or interaction_mode == "web"
+    if interaction_mode == "web":  # legacy alias, no longer a mutually exclusive interface
+        interaction_mode = "terminal" if mode == "pentester" else "batch"
+    args.web = use_web
+    if mode == "pentester":
+        if interaction_mode != "terminal":
+            raise ValueError("Pentester sessions currently require terminal interaction")
+        if getattr(args, "auto", False) or getattr(args, "resume", False) or getattr(args, "resume_scan", None):
+            raise ValueError("Interactive mode uses the terminal; --auto and checkpoint resume require an explicit batch profile")
+        if num_teams != 1 or swarm_agents != 1:
+            raise ValueError("Interactive mode currently supports one pentester; use a swarm profile for teams")
+        from agents.interactive import run_interactive
+        await run_interactive(profile, llm_config, args, mechanisms_spec)
+        return
 
     if mode == "swarm":
         from agents.swarm_pipeline import SwarmPipeline
@@ -247,6 +276,8 @@ async def run(args, orchestrator) -> None:
             auto_mode=getattr(args, "auto", False),
             pause_points=pause_points or None,
             web_bridge=None,
+            target_provider=profile.target_provider if profile else None,
+            workflow=profile.workflow if profile else None,
         )
 
     if getattr(args, "scope_pdf_only", False):
@@ -313,21 +344,22 @@ async def run(args, orchestrator) -> None:
             f"${checkpoint.cost_spent:.2f} spent"
         )
 
-    if use_web:
-        from web import WebUI
-        web_ui = WebUI(pipeline)
-        pipeline.web_bridge = web_ui.bridge
-        _attach_tool_hooks(pipeline, web_ui.bridge)
-
-        async def _run_with_web():
+    pipeline.interaction_mode = interaction_mode
+    web_ui = None
+    try:
+        if use_web:
+            from web import WebUI
+            web_ui = WebUI(pipeline)
+            pipeline.web_bridge = web_ui.bridge
+            _attach_tool_hooks(pipeline, web_ui.bridge)
             await web_ui.start()
-            try:
-                await pipeline.run(**run_kwargs)
-            finally:
-                print("  Stopping dashboard...")
-                await web_ui.shutdown()
-
-        await _run_with_web()
-    else:
-        await pipeline.run(**run_kwargs)
+        if interaction_mode == "terminal":
+            from agents.pipeline_console import PipelineConsole
+            from agents.interactive import terminal_lines
+            await PipelineConsole(pipeline, run_kwargs).run(terminal_lines())
+        else:
+            await pipeline.run(**run_kwargs)
+    finally:
+        if web_ui is not None:
+            await web_ui.shutdown()
     print(f"\nCosts:\n{pipeline.show_costs()}")

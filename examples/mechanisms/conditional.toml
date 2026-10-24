@@ -1,0 +1,23 @@
+[profile]
+name = "conditional-coverage"
+description = "Reward accepted high/critical findings on a specific authorized target"
+
+[topology]
+mode = "swarm"
+agents_per_team = 2
+
+[[mechanisms.items]]
+class = "./coverage.py:CoverageBonus"
+bonus = 12
+enabled = true
+
+[mechanisms.items.when]
+hooks = ["on_submit"]
+accepted = true
+severities = ["high", "critical"]
+# Exact finding.target values, not globs; this is NOT the authorized scope.
+targets = ["authorized.test"]
+
+[[mechanisms.items]]
+name = "idle_tax"
+enabled = false

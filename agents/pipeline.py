@@ -85,8 +85,11 @@ class AgentPipeline:
         scoring: Any = None,
         mechanisms: Any = None,
         coordination: Any = None,
+        workflow: Any = None,
     ) -> None:
         self.settings = get_settings()
+        from profiles import LabWorkflow
+        self.workflow = workflow if workflow is not None else LabWorkflow()
         self.dry_run = dry_run
         self.auto_mode = auto_mode
         self.pause_points = set(pause_points or [])
@@ -106,8 +109,11 @@ class AgentPipeline:
         # Resolved mechanism specs (list[str | dict], see memory/mechanisms.py
         # build_mechanisms). Authoritative when set; falls back to the simpler
         # settings.mechanisms comma-string (plain --mechanisms names only) at
-        # each SharedMemory creation site when empty.
-        self.mechanisms: list = list(mechanisms) if mechanisms else []
+        # construction only when omitted (None); an explicit [] disables mechanisms.
+        self.mechanisms: list = (
+            list(mechanisms) if mechanisms is not None else
+            [name.strip() for name in (getattr(self.settings, "mechanisms", "") or "").split(",") if name.strip()]
+        )
         from memory.coordination_policy import DEFAULT_COORDINATION
         self.coordination = coordination or DEFAULT_COORDINATION
 
@@ -154,6 +160,10 @@ class AgentPipeline:
         use_tool_workers = (
             worker_llm_probe is not None and worker_llm_probe.supports_tool_use
         )
+        if self.workflow.worker_mode == "deterministic":
+            use_tool_workers = False
+        elif self.workflow.worker_mode == "tool" and not dry_run and not use_tool_workers:
+            raise ValueError("workflow.worker_mode='tool' requires a tool-capable recon provider")
         self._use_tool_workers = use_tool_workers
         self.scope_pdf_only: bool = False  # --scope-pdf: load from PDFs only, skip browser scraping
         cli_mode = self.settings.cli_tool_mode
@@ -466,7 +476,7 @@ class AgentPipeline:
                 logger.info("Pipeline stopped by user request.")
                 break
 
-            if not self.cost_tracker.check_budget(budget):
+            if not self.cost_tracker.check_budget(getattr(self, "effective_budget", None) or budget):
                 logger.warning(
                     "Budget exceeded ($%.2f/$%.2f). Stopping.",
                     self.cost_tracker.get_total(), budget,
@@ -895,6 +905,17 @@ class AgentPipeline:
     # Per-program processing
     # ------------------------------------------------------------------
 
+    async def _execute_lab_worker(self, worker, assignment):
+        """Honor terminal pause/stop at stage boundaries and after cancellation."""
+        if not await self._check_pause_stop():
+            raise asyncio.CancelledError()
+        result = await worker.execute(assignment)
+        # ToolAgent returns a failed result on cancellation. Do not continue
+        # into Director calls or subsequent stages after a user stop.
+        if self._stop_flag:
+            raise asyncio.CancelledError()
+        return result
+
     async def _process_program(
         self,
         program_name: str,
@@ -902,7 +923,7 @@ class AgentPipeline:
         budget: float,
     ) -> list[VulnFinding]:
         """Run recon → scan → analyze → report for a single program."""
-        budget_remaining = budget - self.cost_tracker.get_total()
+        budget_remaining = (getattr(self, "effective_budget", None) or budget) - self.cost_tracker.get_total()
         learning_insights = self.learning.summary()
 
         scan_id = self.persistent.start_scan(
@@ -910,60 +931,62 @@ class AgentPipeline:
             metadata={"domain_count": len(domains), "program": program_name},
         )
 
-        # ── Recon ──────────────────────────────────────────────────────
-        self._emit_phase("recon", program_name)
-        logger.info("── Recon: %s ──", program_name)
+        recon_data = {}
+        if "recon" in self.workflow.stages:
+            # ── Recon ──────────────────────────────────────────────────────
+            self._emit_phase("recon", program_name)
+            logger.info("── Recon: %s ──", program_name)
 
-        # Build scope-aware recon context
-        recon_context = f"Reconnaissance on {program_name}: {', '.join(domains)}"
-        program_obj = next((p for p in self.session.programs if p.name == program_name), None)
-        if program_obj:
-            if program_obj.out_of_scope:
-                recon_context += f"\n\nOUT OF SCOPE (skip these): {', '.join(program_obj.out_of_scope[:20])}"
-            if program_obj.required_auth:
-                recon_context += f"\nREQUIRED AUTH: {program_obj.required_auth}"
-            if program_obj.scope_raw_text:
-                recon_context += f"\n\nScope summary:\n{program_obj.scope_raw_text[:1500]}"
+            # Build scope-aware recon context
+            recon_context = f"Reconnaissance on {program_name}: {', '.join(domains)}"
+            program_obj = next((p for p in self.session.programs if p.name == program_name), None)
+            if program_obj:
+                if program_obj.out_of_scope:
+                    recon_context += f"\n\nOUT OF SCOPE (skip these): {', '.join(program_obj.out_of_scope[:20])}"
+                if program_obj.required_auth:
+                    recon_context += f"\nREQUIRED AUTH: {program_obj.required_auth}"
+                if program_obj.scope_raw_text:
+                    recon_context += f"\n\nScope summary:\n{program_obj.scope_raw_text[:1500]}"
 
-        recon_result = await self.recon.execute(
-            TaskAssignment(
-                agent_name="recon",
-                task_type="recon",
-                parameters={"domains": domains},
-                context=recon_context,
+            recon_result = await self._execute_lab_worker(self.recon,
+                TaskAssignment(
+                    agent_name="recon",
+                    task_type="recon",
+                    parameters={"domains": domains},
+                    context=recon_context,
+                )
             )
-        )
 
-        recon_decision = await self.director.evaluate_phase_result(
-            recon_result, "recon",
-            budget_remaining=budget_remaining,
-            learning_insights=learning_insights,
-        )
+            recon_decision = await self.director.evaluate_phase_result(
+                recon_result, "recon",
+                budget_remaining=budget_remaining,
+                learning_insights=learning_insights,
+            )
 
-        if recon_decision.decision in ("skip", "abort"):
-            logger.info("Director: %s recon — %s", recon_decision.decision, recon_decision.reasoning)
-            self.persistent.complete_scan(scan_id, 0, self.cost_tracker.get_total())
-            for d in domains:
-                self.session.mark_skipped(d, recon_decision.reasoning)
-            return []
+            if recon_decision.decision in ("skip", "abort"):
+                logger.info("Director: %s recon — %s", recon_decision.decision, recon_decision.reasoning)
+                self.persistent.complete_scan(scan_id, 0, self.cost_tracker.get_total())
+                for d in domains:
+                    self.session.mark_skipped(d, recon_decision.reasoning)
+                return []
 
-        recon_data = recon_result.data if isinstance(recon_result.data, dict) else {}
-        self.session.recon_data.update(recon_data)
+            recon_data = recon_result.data if isinstance(recon_result.data, dict) else {}
+            self.session.recon_data.update(recon_data)
 
-        # Tag targets with technologies
-        for tech in recon_data.get("technologies", []):
-            for domain in domains:
-                self.session.add_tags(domain, [tech])
-                if self.graph:
-                    await self.graph.store_technology(domain, tech)
+            # Tag targets with technologies
+            for tech in recon_data.get("technologies", []):
+                for domain in domains:
+                    self.session.add_tags(domain, [tech])
+                    if self.graph:
+                        await self.graph.store_technology(domain, tech)
 
         # ── Scan ───────────────────────────────────────────────────────
         self._emit_phase("scan", program_name)
         logger.info("── Scan: %s ──", program_name)
         targets = recon_data.get("subdomains", domains)
-        if len(targets) > 50:
-            logger.info("Limiting scan targets from %d to 50", len(targets))
-            targets = targets[:50]
+        if len(targets) > self.workflow.max_scan_targets:
+            logger.info("Limiting scan targets from %d to %d", len(targets), self.workflow.max_scan_targets)
+            targets = targets[:self.workflow.max_scan_targets]
 
         # Build scope context for the scanner
         scan_context = f"Vulnerability scanning for {program_name}"
@@ -1010,7 +1033,7 @@ class AgentPipeline:
             if graph_context:
                 scan_context += f"\n{graph_context}"
 
-        scan_result = await self.scanner.execute(
+        scan_result = await self._execute_lab_worker(self.scanner,
             TaskAssignment(
                 agent_name="scanner",
                 task_type="scan",
@@ -1021,7 +1044,7 @@ class AgentPipeline:
 
         scan_decision = await self.director.evaluate_phase_result(
             scan_result, "scan",
-            budget_remaining=budget - self.cost_tracker.get_total(),
+            budget_remaining=(getattr(self, "effective_budget", None) or budget) - self.cost_tracker.get_total(),
             learning_insights=learning_insights,
         )
 
@@ -1037,24 +1060,27 @@ class AgentPipeline:
             self.persistent.complete_scan(scan_id, 0, self.cost_tracker.get_total())
             return []
 
-        # ── Analyze ────────────────────────────────────────────────────
-        self._emit_phase("analyze", program_name)
-        logger.info("── Analyze: %s ──", program_name)
-        analyze_result = await self.analyzer.execute(
-            TaskAssignment(
-                agent_name="analyzer",
-                task_type="analyze",
-                parameters={"findings": findings},
-                context=f"AI analysis of {len(findings)} findings from {program_name}",
+        analyzed_findings = findings
+        if "analyze" in self.workflow.stages:
+            # ── Analyze ────────────────────────────────────────────────────
+            self._emit_phase("analyze", program_name)
+            logger.info("── Analyze: %s ──", program_name)
+            analyze_result = await self._execute_lab_worker(self.analyzer,
+                TaskAssignment(
+                    agent_name="analyzer",
+                    task_type="analyze",
+                    parameters={"findings": findings},
+                    context=f"AI analysis of {len(findings)} findings from {program_name}",
+                )
             )
-        )
 
-        analyze_decision = await self.director.evaluate_phase_result(
-            analyze_result, "analyze",
-            budget_remaining=budget - self.cost_tracker.get_total(),
-        )
+            analyze_decision = await self.director.evaluate_phase_result(
+                analyze_result, "analyze",
+                budget_remaining=(getattr(self, "effective_budget", None) or budget) - self.cost_tracker.get_total(),
+            )
 
-        analyzed_findings = analyze_result.data if isinstance(analyze_result.data, list) else []
+            analyzed_findings = analyze_result.data if isinstance(analyze_result.data, list) else []
+
         self.session.analyzed_findings.extend(analyzed_findings)
 
         # Persist findings
@@ -1077,28 +1103,29 @@ class AgentPipeline:
             return []
 
         # Human checkpoint before reporting
-        if not await self._checkpoint("analyze", analyzed_findings):
+        if "report" in self.workflow.stages and not await self._checkpoint("analyze", analyzed_findings):
             self.persistent.complete_scan(
                 scan_id, len(analyzed_findings), self.cost_tracker.get_total()
             )
             return analyzed_findings
 
-        # ── Report ─────────────────────────────────────────────────────
-        self._emit_phase("report", program_name)
-        logger.info("── Report: %s ──", program_name)
-        report_result = await self.reporter.execute(
-            TaskAssignment(
-                agent_name="reporter",
-                task_type="report",
-                parameters={
-                    "findings": analyzed_findings,
-                    "estimated_costs": self.cost_tracker.get_per_target_costs(),
-                },
-                context=f"Generate reports for {len(analyzed_findings)} findings from {program_name}",
+        if "report" in self.workflow.stages:
+            # ── Report ─────────────────────────────────────────────────────
+            self._emit_phase("report", program_name)
+            logger.info("── Report: %s ──", program_name)
+            report_result = await self._execute_lab_worker(self.reporter,
+                TaskAssignment(
+                    agent_name="reporter",
+                    task_type="report",
+                    parameters={
+                        "findings": analyzed_findings,
+                        "estimated_costs": self.cost_tracker.get_per_target_costs(),
+                    },
+                    context=f"Generate reports for {len(analyzed_findings)} findings from {program_name}",
+                )
             )
-        )
 
-        await self.director.evaluate_phase_result(report_result, "report")
+            await self.director.evaluate_phase_result(report_result, "report")
 
         self.persistent.complete_scan(
             scan_id, len(analyzed_findings), self.cost_tracker.get_total()
@@ -1172,6 +1199,10 @@ class AgentPipeline:
         # If specific pause points configured, only pause at those
         if self.pause_points and phase not in self.pause_points:
             return True
+
+        terminal = getattr(self, "_terminal_controller", None)
+        if terminal:
+            return await terminal.checkpoint(phase, data)
 
         # --- Web dashboard path (non-blocking) ---
         if self.web_bridge:

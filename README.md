@@ -17,6 +17,13 @@ authorized to test. Findings and generated reports require human review.
 
 ![swarmhound dashboard](docs/dashboard.png)
 
+## Start interactively
+
+After [installation](#install), run `python main.py` to open the default
+[interactive pentester](docs/interactive.md). Set `/scope`, ask a question or give
+an investigation task, and use `/stop` to cancel active work. It waits for your
+request and retains conversation context; it does not launch an unattended scan.
+
 ## What is configurable?
 
 A TOML profile describes a run. Named profiles resolve to files in `profiles/`;
@@ -27,6 +34,7 @@ explicit CLI options override the corresponding profile options.
 | Target provider | `[target]` | Explicit targets, program discovery, or a custom source |
 | Methodology | `[methodology]` | Worker system instructions and optional turn template |
 | Topology | `[topology]` | Engine, teams, and workers per team |
+| Interaction | `[interaction] mode` | Terminal, dashboard, or batch interface, independent of topology |
 | Models | `[llm.director]`, `[llm.default_worker]`, `[llm.overrides.*]` | Provider and model by role or agent |
 | Scoring | `[scoring]` | Finding rewards, rejection/duplicate penalties, termination threshold |
 | Coordination | `[coordination]` | Shared/exclusive claims, review cadence, cross-team sharing |
@@ -60,15 +68,17 @@ flowchart TB
 
 Example profiles:
 
+- [`interactive.toml`](profiles/interactive.toml): default user-led terminal pentester.
+- [`lab.toml`](profiles/lab.toml): configurable sequential recon, scan, analysis and reporting.
 - [`bugbounty.toml`](profiles/bugbounty.toml): one team, four workers, baseline scoring.
 - [`competitive.toml`](profiles/competitive.toml): three teams of three workers,
   shared claims and additional incentives.
 - [`redteam.toml`](profiles/redteam.toml): direct targets with an internal
   red-team methodology.
 
-Profiles are loaded at startup, not hot-reloaded. Omitting `--profile` uses
-code defaults rather than loading `bugbounty.toml`. Use a profile or an explicit
-`--mode swarm` when you want the swarm engine.
+Profiles are loaded at startup, not hot-reloaded. Omitting both `--profile`
+and `--mode` loads `profiles/interactive.toml`. Lab runs only when selected
+with `--profile lab` or `--mode lab`. Use `--profile bugbounty` for the swarm engine.
 
 ## How a swarm run works
 
@@ -90,13 +100,25 @@ message bus and persistent storage. The optional knowledge graph is shared too.
 Submission scoring and persistence happen **before validation**; the report
 handoff is not a verified-only gate.
 
-The `lab` engine instead runs discovery, recon, scan, analysis and reporting
-stages. Not every swarm profile feature is consumed by that path.
+The [lab profile](docs/lab.md) configures sequential stages, worker mode, target
+selection and role models. Swarm incentive hooks and coordination are separate.
 
 See the [architecture reference](docs/architecture.md) for runtime feedback
 loops, extension hooks and current limitations. The same diagrams are available
 as an [HTML page](docs/architecture.html); download/open it in a browser with
 internet access to render Mermaid.
+
+## Documentation
+
+Start at the [documentation index](docs/README.md) for tutorials, examples, and
+CLI, settings, extension API, runtime, data-model and dashboard references.
+
+- [Setup and first custom mechanism](docs/getting-started.md): fresh-clone setup,
+  a working Python extension, offline checks, conditional configuration and a real run.
+- [Configuration reference](docs/configuration.md): settings, defaults and CLI precedence.
+- [Custom mechanisms](docs/mechanisms.md): hook API, state, filters and examples.
+- [Architecture](docs/architecture.md): components and runtime flow.
+- [Local benchmark](benchmark/README.md): managed target and evaluation workflow.
 
 ## Install
 
@@ -210,6 +232,37 @@ checkpoint support is not a promise of seamless recovery for every topology.
 - **Logs can contain sensitive material.** Runtime data and reports are ignored
   by Git, but you must review them before sharing.
 
+## Profile-controlled interaction
+
+Add `[interaction] mode = "terminal"` to a swarm or lab profile, or pass
+`--interaction terminal`, to start and steer it from the console. Use `batch`
+for the existing run workflow. Add `--web` to any profile to open a dashboard
+alongside that workflow, including the default conversational pentester. See the
+[interaction reference](docs/interaction.md) for supported combinations and controls.
+
+## Extending the framework
+
+Write mechanism behavior in Python and select it from a profile. Custom classes
+can live in an installed package or in a `.py` file beside your TOML; no registry
+edit is required. See the [custom mechanisms guide](docs/mechanisms.md) for a
+working example, hook contracts, state lifecycle, composition rules and testing
+without model calls. The [example profile](examples/mechanisms/profile.toml)
+loads its adjacent Python extension.
+
+Use [conditional hooks](docs/mechanisms.md#control-when-a-mechanism-applies) to
+limit a mechanism to selected events, workers, targets or severities. Inspect a
+trusted profile before running it:
+
+```bash
+python -m profiles mechanisms
+python -m profiles inspect examples/mechanisms/conditional.toml
+```
+
+The [configuration reference](docs/configuration.md) documents defaults,
+CLI precedence and which settings apply to each engine.
+The [architecture guide](docs/architecture.md) explains how profiles, workers,
+shared memory, the Director and validators connect at runtime.
+
 ## Development
 
 ```bash
@@ -223,3 +276,5 @@ not replace an end-to-end run with your chosen models and environment.
 ## License
 
 [MIT](LICENSE) © Yehonatan Tsirolnik
+
+MCP plugins: see [setup, IDA connection examples, and configuration reference](docs/mcp.md).

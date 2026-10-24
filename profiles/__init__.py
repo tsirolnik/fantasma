@@ -19,7 +19,9 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
-from agents.methodology import Methodology, PentestMethodology, RedTeamMethodology
+from profiles.mcp import MCPServer
+
+from agents.methodology import Methodology, PentestMethodology, RedTeamMethodology, InteractiveMethodology
 from agents.target_provider import (
     TargetProvider, AutoTargetProvider, DirectTargetProvider, BugBountyTargetProvider,
 )
@@ -32,6 +34,7 @@ from memory.coordination_policy import CoordinationPolicy, DEFAULT_COORDINATION
 # which is how a third party plugs in their OWN methodology/target provider
 # without touching framework code.
 BUILTIN_METHODOLOGIES: dict[str, type[Methodology]] = {
+    "interactive": InteractiveMethodology,
     "pentest": PentestMethodology,
     "redteam": RedTeamMethodology,
 }
@@ -62,13 +65,55 @@ def _resolve_class(spec: str, builtins: dict[str, type]) -> type:
 
 @dataclass
 class Topology:
-    """mode is 'swarm' (N agents, optionally across num_teams competing
-    teams) or 'lab' (sequential specialized agents) — there is no separate
-    'group' mode value. num_teams > 1 on 'swarm' IS multi-team competition;
-    num_teams = 1 (the default) is a single team, no rivalry."""
+    """Execution topology: pentester (conversational worker), swarm (teams),
+    or lab (sequential stages). Interaction is configured independently.
+    Multiple teams use swarm with num_teams > 1, not a separate group mode."""
     mode: str = "swarm"
     agents_per_team: int = 4
     num_teams: int = 1
+
+
+@dataclass
+class LabWorkflow:
+    """Supported sequential stages; data dependencies determine their order."""
+    stages: list[str] = field(default_factory=lambda: ["recon", "scan", "analyze", "report"])
+    worker_mode: str = "auto"
+    max_scan_targets: int = 50
+
+    def __post_init__(self):
+        order = ["recon", "scan", "analyze", "report"]
+        if (not isinstance(self.stages, list) or
+                any(stage not in order for stage in self.stages) or
+                self.stages != [stage for stage in order if stage in self.stages] or
+                "scan" not in self.stages):
+            raise ValueError("workflow.stages must be an ordered subset of recon, scan, analyze, report containing scan")
+        if self.worker_mode not in ("auto", "tool", "deterministic"):
+            raise ValueError("workflow.worker_mode must be auto, tool or deterministic")
+        if type(self.max_scan_targets) is not int or self.max_scan_targets < 1:
+            raise ValueError("workflow.max_scan_targets must be a positive integer")
+
+
+@dataclass
+class Interaction:
+    mode: str = "batch"  # batch | terminal; dashboard is independent
+    max_iterations: int = 20
+    max_tool_calls: int = 50
+
+    def __post_init__(self):
+        if self.mode not in ("batch", "terminal"):
+            raise ValueError("interaction.mode must be batch or terminal")
+        for name in ("max_iterations", "max_tool_calls"):
+            if type(getattr(self, name)) is not int or getattr(self, name) < 1:
+                raise ValueError(f"interaction.{name} must be a positive integer")
+
+
+@dataclass
+class Dashboard:
+    enabled: bool = False
+
+    def __post_init__(self):
+        if type(self.enabled) is not bool:
+            raise ValueError("dashboard.enabled must be a boolean")
 
 
 @dataclass
@@ -86,10 +131,14 @@ class Profile:
     methodology: Methodology = field(default_factory=PentestMethodology)
     target_provider: TargetProvider = field(default_factory=AutoTargetProvider)
     scoring: ScoringPolicy = field(default_factory=lambda: DEFAULT_SCORING)
-    mechanisms: list[str] = field(default_factory=list)
+    mechanisms: list[str | dict] = field(default_factory=list)
     topology: Topology = field(default_factory=Topology)
     llm: LLMConfigMap = field(default_factory=LLMConfigMap)
+    interaction: Interaction = field(default_factory=Interaction)
+    workflow: LabWorkflow = field(default_factory=LabWorkflow)
     coordination: CoordinationPolicy = field(default_factory=lambda: DEFAULT_COORDINATION)
+    mcp: list[MCPServer] = field(default_factory=list)
+    dashboard: Dashboard = field(default_factory=Dashboard)
 
     def summary(self) -> dict[str, Any]:
         """Stable, serializable 'what is this run configured to do' view —
@@ -97,6 +146,7 @@ class Profile:
         into pipeline/agent internals."""
         return {
             "name": self.name,
+            "mcp": [asdict(server) for server in self.mcp],
             "description": self.description,
             "methodology": getattr(self.methodology, "name", type(self.methodology).__name__),
             "target_provider": type(self.target_provider).__name__,
@@ -109,4 +159,7 @@ class Profile:
                 "overrides": {k: asdict(v) for k, v in self.llm.overrides.items()},
             },
             "coordination": asdict(self.coordination),
+            "workflow": asdict(self.workflow),
+            "interaction": asdict(self.interaction),
+            "dashboard": asdict(self.dashboard),
         }

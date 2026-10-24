@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwarmHound pentester</title>
+<style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:0 20px;background:#111827;color:#e5e7eb}pre{white-space:pre-wrap;background:#1f2937;padding:20px;min-height:240px}textarea{width:100%;box-sizing:border-box;padding:12px}button{padding:10px;margin:10px 10px 0 0}#error{color:#fca5a5}</style>
+<h1>SwarmHound pentester</h1><p>This is the same session as your terminal. Send requests, redirects, /scope, /status, or /stop.</p>
+<p id="status"></p><pre id="messages"></pre><p id="error" role="alert"></p>
+<form id="chat"><textarea id="text" required maxlength="20000" aria-label="Request" rows="3"></textarea><button>Send</button><button type="button" id="stop">Stop work</button></form>
+<script>
+const error=document.querySelector('#error');
+async function refresh(){try{const r=await fetch('/api/status');if(!r.ok)throw Error('Session unavailable; reload to sign in.');const s=await r.json();document.querySelector('#status').textContent=`${s.running?'Working':'Ready'} · Scope: ${s.scope.join(', ')||'unset'} · $${s.cost.toFixed(4)} · ${s.findings} findings`;document.querySelector('#messages').textContent=s.messages.join('\n\n');}catch(e){error.textContent=e.message;}}
+async function send(text){const r=await fetch('/api/message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});if(!r.ok)throw Error(await r.text());error.textContent='';await refresh();}
+document.querySelector('#chat').onsubmit=async e=>{e.preventDefault();const input=document.querySelector('#text');try{await send(input.value);input.value='';}catch(e){error.textContent=e.message;}};
+document.querySelector('#stop').onclick=()=>send('/stop').catch(e=>error.textContent=e.message);
+refresh();setInterval(refresh,1500);
+</script></html>

@@ -432,6 +432,12 @@ class PipelineBridge:
 
     async def _handle_control(self, data: dict) -> None:
         action = data.get("action", "")
+        terminal = getattr(self.pipeline, "_terminal_controller", None)
+        if terminal and action in ("pause", "resume", "stop"):
+            await terminal.handle("/" + action)
+            self._pipeline_state = {"pause": "paused", "resume": "running", "stop": "stopped"}[action]
+            self._broadcast({"type": "status_update", "pipeline_state": self._pipeline_state})
+            return
         if action == "pause":
             self._pipeline_state = "paused"
             self.pipeline.pause()
@@ -655,6 +661,8 @@ class PipelineBridge:
         is_group = getattr(p, "_group_mode", False)
         mode = "group" if is_group else ("swarm" if hasattr(p, "num_agents") else "lab")
         return {
+            "interaction": {"mode": getattr(p, "interaction_mode", "web")},
+            "workflow": asdict(p.workflow) if mode == "lab" and getattr(p, "workflow", None) else None,
             "methodology": getattr(methodology, "name", type(methodology).__name__) if methodology else None,
             "target_provider": type(target_provider).__name__ if target_provider else None,
             "scoring": asdict(scoring) if scoring else None,

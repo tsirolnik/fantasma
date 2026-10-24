@@ -41,7 +41,7 @@ import tomllib
 from pathlib import Path
 
 from profiles import (
-    Profile, Topology,
+    Profile, Topology, LabWorkflow, Interaction, Dashboard,
     BUILTIN_METHODOLOGIES, BUILTIN_TARGET_PROVIDERS, _resolve_class,
 )
 from agents.llm_config import LLMConfigMap, AgentLLMConfig
@@ -129,25 +129,72 @@ def parse_profile_toml(text: str, *, source: str = "<string>") -> Profile:
 
     topo_raw = data.get("topology", {})
     topology = Topology(
-        mode=topo_raw.get("mode", "swarm"),
+        mode="pentester" if topo_raw.get("mode") == "interactive" else topo_raw.get("mode", "swarm"),
         agents_per_team=topo_raw.get("agents_per_team", 4),
         num_teams=topo_raw.get("num_teams", 1),
     )
-    if topology.mode not in ("swarm", "lab"):
+    if topology.mode not in ("swarm", "lab", "pentester"):
         # No "group" value: multi-team competition is num_teams > 1 on the
         # "swarm" engine, not a separate mode — see Topology's docstring.
-        raise ValueError(f"{source}: [topology].mode must be 'swarm' or 'lab', got {topology.mode!r}. "
+        raise ValueError(f"{source}: [topology].mode must be 'swarm', 'lab' or 'pentester', got {topology.mode!r}. "
                           f"For multi-team competition, set num_teams > 1, not a separate mode.")
 
     # Two forms, mergeable: `enabled = [...]` plain names (default knobs), and
     # `[[mechanisms.items]]` tables for tuned knobs or a custom "class".
     mech_raw = data.get("mechanisms", {})
+    if not isinstance(mech_raw, dict) or any(
+        not isinstance(mech_raw.get(key, []), list) for key in ("enabled", "items")
+    ):
+        raise ValueError(f"{source}: mechanisms.enabled and mechanisms.items must be arrays")
     mechanisms: list = list(mech_raw.get("enabled", []))
     mechanisms += list(mech_raw.get("items", []))
-    for spec in mechanisms:
+    for index, spec in enumerate(mechanisms):
+        if not isinstance(spec, (str, dict)):
+            raise ValueError(f"{source}: mechanism must be a name or table, got {spec!r}")
         ref = spec if isinstance(spec, str) else (spec.get("class") or spec.get("name"))
+        if not isinstance(ref, str) or not ref.strip():
+            raise ValueError(f"{source}: mechanism requires a nonempty name or class")
+        if ":" in ref:
+            module, class_name = ref.split(":", 1)
+            if module.endswith(".py"):
+                # Keep external extensions beside their profile, independent of cwd.
+                path = Path(module)
+                if not path.is_absolute():
+                    path = Path(source).resolve().parent / path
+                ref = f"{path.resolve()}:{class_name}"
+                if isinstance(spec, str):
+                    mechanisms[index] = ref
+                else:
+                    spec["class" if "class" in spec else "name"] = ref
         if isinstance(ref, str) and ":" not in ref and ref not in MECHANISM_REGISTRY:
             raise ValueError(f"{source}: unknown mechanism {ref!r}. Known: {sorted(MECHANISM_REGISTRY)}")
+
+    workflow_raw = data.get("workflow", {})
+    try:
+        workflow = LabWorkflow(**workflow_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source}: invalid [workflow]: {exc}") from exc
+    if workflow_raw and topology.mode != "lab":
+        raise ValueError(f"{source}: [workflow] is supported only with topology.mode = 'lab'")
+
+    try:
+        interaction_raw = dict(data.get("interaction", {}))
+        if topo_raw.get("mode") == "interactive":
+            interaction_raw.setdefault("mode", "terminal")
+        dashboard_raw = dict(data.get("dashboard", {}))
+        if interaction_raw.get("mode") == "web":
+            interaction_raw["mode"] = "terminal" if topology.mode == "pentester" else "batch"
+            dashboard_raw.setdefault("enabled", True)
+        dashboard = Dashboard(**dashboard_raw)
+        interaction = Interaction(**interaction_raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source}: invalid [interaction]: {exc}") from exc
+    if topology.mode != "pentester" and {"max_iterations", "max_tool_calls"} & set(interaction_raw):
+        raise ValueError(f"{source}: interaction request limits apply only to pentester topology")
+    if topology.mode == "pentester" and interaction.mode != "terminal":
+        raise ValueError(f"{source}: pentester currently requires interaction.mode = 'terminal'")
+    if topology.mode == "pentester" and (topology.num_teams != 1 or topology.agents_per_team != 1):
+        raise ValueError(f"{source}: interactive sessions require one team and one pentester")
 
     scoring = _resolve_scoring(data.get("scoring", {}))
     llm = _resolve_llm(data.get("llm", {}))
@@ -156,11 +203,28 @@ def parse_profile_toml(text: str, *, source: str = "<string>") -> Profile:
         raise ValueError(f"{source}: [coordination].claim_mode must be 'exclusive' or 'shared', "
                           f"got {coordination.claim_mode!r}")
 
+    from profiles.mcp import MCPServer
+    raw_mcp = data.get("mcp", {})
+    if not isinstance(raw_mcp, dict) or set(raw_mcp) - {"servers"} or not isinstance(raw_mcp.get("servers", []), list):
+        raise ValueError("MCP configuration requires [[mcp.servers]] tables")
+    try:
+        mcp = [MCPServer(**item) for item in raw_mcp.get("servers", [])]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{source}: invalid MCP configuration: {exc}") from exc
+    if len({server.name for server in mcp}) != len(mcp):
+        raise ValueError("MCP server names must be unique")
+    for server in mcp:
+        if server.cwd is not None:
+            server.cwd = str((Path(source).resolve().parent / server.cwd).resolve())
+    if mcp and topology.mode == "lab" and workflow.worker_mode != "tool":
+        raise ValueError("Lab MCP requires workflow.worker_mode = tool")
+
     return Profile(
+        mcp=mcp, dashboard=dashboard,
         name=name, description=description,
         methodology=methodology, target_provider=target_provider,
         scoring=scoring, mechanisms=mechanisms, topology=topology,
-        llm=llm, coordination=coordination,
+        llm=llm, coordination=coordination, workflow=workflow, interaction=interaction,
     )
 
 

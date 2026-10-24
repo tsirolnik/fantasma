@@ -1,0 +1,24 @@
+# Sequential investigation workflow. Copy and customize with --profile PATH.
+[profile]
+name = "lab"
+description = "Sequential discovery, reconnaissance, scanning, analysis and reporting"
+
+[target]
+provider = "auto"
+
+[topology]
+mode = "lab"
+
+[workflow]
+# Ordered subset; scan is required. Discovery is controlled by target.provider.
+stages = ["recon", "scan", "analyze", "report"]
+# auto selects tool workers when the recon provider supports tools.
+# Alternatives: tool (require support), deterministic (fixed worker implementations).
+worker_mode = "auto"
+max_scan_targets = 50
+
+[llm.director]
+provider = "claude"
+
+[llm.default_worker]
+provider = "ollama"

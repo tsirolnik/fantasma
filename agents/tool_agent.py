@@ -93,6 +93,9 @@ class ToolAgent(BaseAgent):
         super().__init__(bus, llm, name=name)
         if tools is not None:
             self.tools = tools
+        from agents.mcp_runtime import attach_mcp_tools
+        if getattr(self, "tools", None) is not None:
+            attach_mcp_tools(self.tools)
         if system_prompt:
             self.system_prompt = system_prompt
         self.max_iterations = max_iterations
@@ -350,12 +353,7 @@ class ToolAgent(BaseAgent):
             self._cli_adapter = None
 
         # Build initial conversation
-        messages: list[dict] = [
-            {
-                "role": "user",
-                "content": self._build_user_message(assignment),
-            },
-        ]
+        messages: list[dict] = self._build_initial_messages(assignment)
         if self.cli_mode and self._cli_adapter:
             tool_schemas = self._cli_adapter.tool_schema()
         else:
@@ -612,7 +610,7 @@ class ToolAgent(BaseAgent):
                     while not self._directive_queue.empty():
                         try:
                             directive = self._directive_queue.get_nowait()
-                            self._sticky_directives.append(directive)
+                            self._sticky_directives.append((directive, 5))
                             logger.info("%s: late directive added (now %d active): %s",
                                         self.name, len(self._sticky_directives), directive[:120])
                         except asyncio.QueueEmpty:
@@ -1415,7 +1413,8 @@ class ToolAgent(BaseAgent):
                 return tc
 
         # Normalize parameters: remap unknown keys to schema-expected keys
-        tool_input = self._normalize_params(tool_input, tool.parameters)
+        if tool.category != "mcp":
+            tool_input = self._normalize_params(tool_input, tool.parameters)
 
         # Scope and claim enforcement. Applies to any tool that can reach the
         # network — scan/recon plus code/docker execution (which can embed an
@@ -1894,7 +1893,13 @@ class ToolAgent(BaseAgent):
         )
         methodology = getattr(self, "methodology", None)
         custom_template = getattr(methodology, "config", {}).get("turn_template") if methodology else None
-        return build_turn_context(state, template=custom_template)
+        briefing = build_turn_context(state, template=custom_template)
+        # Both context modes must dispatch turn hooks exactly once per turn.
+        digest = self._build_progress_digest(iteration)
+        return f"{briefing}\n\n{digest}" if digest else briefing
+
+    def _build_initial_messages(self, assignment: TaskAssignment) -> list[dict]:
+        return [{"role": "user", "content": self._build_user_message(assignment)}]
 
     def _build_user_message(self, assignment: TaskAssignment) -> str:
         """Build the initial user message from a task assignment."""

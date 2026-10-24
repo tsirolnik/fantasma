@@ -85,7 +85,10 @@ class AgentGroup:
         self.methodology = methodology
         from memory.scoring_policy import DEFAULT_SCORING
         self.scoring = scoring or DEFAULT_SCORING
-        self.mechanisms: list = list(mechanisms) if mechanisms else []
+        self.mechanisms: list = (
+            list(mechanisms) if mechanisms is not None else
+            [name.strip() for name in (getattr(self.settings, "mechanisms", "") or "").split(",") if name.strip()]
+        )
         from memory.coordination_policy import DEFAULT_COORDINATION
         self.coordination = coordination or DEFAULT_COORDINATION
 
@@ -172,8 +175,7 @@ class AgentGroup:
             # Finding IDs are globally unique (process-wide counter in shared.py)
             sm = SharedMemory(scoring=self.scoring, coordination=self.coordination)
             sm.team_id = team.team_id
-            sm.configure_mechanisms(
-                self.mechanisms or (self.settings.mechanisms.split(",") if getattr(self.settings, "mechanisms", None) else None))
+            sm.configure_mechanisms(self.mechanisms)
             sm.allowed_domains = {d.lower() for d in all_domains}
 
             # Wire incremental persistence callback

@@ -12,5 +12,5 @@ aiohttp>=3.9.0
 playwright>=1.40.0
 falkordb>=1.0.0
 PyMuPDF>=1.24.0
-mcp>=1.0.0
+mcp>=1.28.0,<2
 google-genai>=0.3.0

@@ -255,8 +255,7 @@ class SwarmPipeline(AgentPipeline):
         logger.info("=== Phase 2: Swarm (%d agents, %d targets) ===", self.num_agents, len(all_domains))
 
         self.shared_memory = SharedMemory(scoring=self.scoring, coordination=self.coordination)
-        self.shared_memory.configure_mechanisms(
-            self.mechanisms or (self.settings.mechanisms.split(",") if self.settings.mechanisms else None))
+        self.shared_memory.configure_mechanisms(self.mechanisms)
 
         # Quality gate: restrict findings to in-scope domains
         self.shared_memory.allowed_domains = {d.lower() for d in all_domains}
@@ -1207,6 +1206,8 @@ class SwarmPipeline(AgentPipeline):
     def _print_shutdown_summary(self) -> None:
         """Print a clean shutdown summary to the terminal."""
         findings_n = self.shared_memory.findings_count if self.shared_memory else 0
+        if getattr(self, "_terminal_controller", None):
+            return "exit"  # terminal controller owns stdin; never call blocking input()
         entries_n = self.shared_memory.entry_count if self.shared_memory else 0
         run_label = getattr(self, "_run_name", "")
         cost = self.cost_tracker.get_total()
@@ -1233,6 +1234,8 @@ class SwarmPipeline(AgentPipeline):
 
         Returns "debrief" or "exit".
         """
+        if getattr(self, "_terminal_controller", None):
+            return "exit"  # terminal controller owns stdin; never call blocking input()
         entries_n = self.shared_memory.entry_count if self.shared_memory else 0
         findings_n = self.shared_memory.findings_count if self.shared_memory else 0
         print("  What would you like to do?")
@@ -1357,8 +1360,7 @@ class SwarmPipeline(AgentPipeline):
         logger.info("=== Resuming Swarm (%d agents, %d targets) ===", self.num_agents, len(all_domains))
 
         self.shared_memory = SharedMemory(scoring=self.scoring, coordination=self.coordination)
-        self.shared_memory.configure_mechanisms(
-            self.mechanisms or (self.settings.mechanisms.split(",") if self.settings.mechanisms else None))
+        self.shared_memory.configure_mechanisms(self.mechanisms)
         self.shared_memory.on_finding = self._persist_finding
 
         # Quality gate: restrict findings to in-scope domains

@@ -1,0 +1,12 @@
+[profile]
+name = "custom-coverage"
+description = "A local Python extension configured by TOML"
+
+[topology]
+mode = "swarm"
+agents_per_team = 2
+
+[[mechanisms.items]]
+# Relative to this profile, not the shell's working directory.
+class = "./coverage.py:CoverageBonus"
+bonus = 7

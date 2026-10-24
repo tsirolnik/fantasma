@@ -1,0 +1,12 @@
+[profile]
+name = "terminal-swarm"
+description = "Steer a two-worker swarm through the terminal"
+[topology]
+mode = "swarm"
+agents_per_team = 2
+[target]
+provider = "direct"
+[interaction]
+mode = "terminal"
+[llm.default_worker]
+provider = "claude"

@@ -1,0 +1,25 @@
+[profile]
+name = "interactive"
+description = "User-led terminal pentester: ask, investigate, discuss, and steer"
+
+[topology]
+mode = "pentester"
+agents_per_team = 1
+num_teams = 1
+
+[methodology]
+type = "interactive"
+
+[target]
+provider = "direct"
+
+[interaction]
+mode = "terminal"
+max_iterations = 20
+max_tool_calls = 50
+
+[mechanisms]
+enabled = []
+
+[llm.default_worker]
+provider = "claude"

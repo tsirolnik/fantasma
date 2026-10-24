@@ -1,0 +1,14 @@
+[profile]
+name = "terminal-lab"
+description = "Sequential investigation with terminal controls and checkpoints"
+[topology]
+mode = "lab"
+[target]
+provider = "direct"
+[workflow]
+stages = ["recon", "scan", "analyze", "report"]
+worker_mode = "auto"
+[interaction]
+mode = "terminal"
+[llm.default_worker]
+provider = "claude"

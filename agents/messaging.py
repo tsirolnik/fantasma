@@ -78,6 +78,10 @@ class MessageBus:
         """Register an agent so the bus can route questions to it."""
         self._agents[name] = agent
 
+    def get_agent(self, name: str):
+        """Look up a currently registered agent for interactive routing."""
+        return self._agents.get(name)
+
     def send(self, message: AgentMessage) -> None:
         """Log and dispatch a message to subscribers."""
         self._log.append(message)

@@ -8,7 +8,7 @@ context at specific, existing hook points SharedMemory already calls:
 
     on_submit(agent_id, finding, accepted, reason) -> MechanismEffect
     on_claim(agent_id, key, success)               -> MechanismEffect
-    on_turn(agent_id)                               -> str | None   (injected into the agent's turn)
+    on_turn(agent_id)                               -> MechanismEffect   (injected into the agent's turn)
     on_director_review(scoreboard)                  -> str | None   (injected into the director's prompt)
 
 Mechanisms are independent and composable: selecting a set via
@@ -19,7 +19,8 @@ it never reaches into another mechanism or into SharedMemory's internals
 beyond the hook arguments it's given.
 
 To add a new mechanism: subclass Mechanism, implement the hooks you need
-(default no-ops are fine for the rest), and add it to MECHANISM_REGISTRY.
+(default no-ops are fine for the rest), and reference it as module.path:ClassName or ./file.py:ClassName.
+See docs/mechanisms.md for the lifecycle and a runnable example.
 """
 from __future__ import annotations
 
@@ -319,11 +320,101 @@ def _resolve_mechanism_class(spec: str) -> type[Mechanism]:
                           f"For a custom mechanism, use 'module.path:ClassName'.")
     module_path, class_name = spec.split(":", 1)
     import importlib
-    module = importlib.import_module(module_path)
+    import importlib.util
+    import hashlib
+    import sys
+    from pathlib import Path
+    if module_path.endswith(".py"):
+        path = Path(module_path).resolve()
+        module_name = "_swarmhound_mechanism_" + hashlib.sha256(str(path).encode()).hexdigest()
+        if module_name in sys.modules:
+            module = sys.modules[module_name]
+        else:
+            loader_spec = importlib.util.spec_from_file_location(module_name, path)
+            if loader_spec is None or loader_spec.loader is None:
+                raise ValueError(f"Cannot load mechanism file {path}")
+            module = importlib.util.module_from_spec(loader_spec)
+            sys.modules[module_name] = module
+            try:
+                loader_spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(module_name, None)
+                raise
+    else:
+        module = importlib.import_module(module_path)
     cls = getattr(module, class_name, None)
     if cls is None:
         raise ValueError(f"{module_path!r} has no attribute {class_name!r}")
+    if not isinstance(cls, type) or not issubclass(cls, Mechanism):
+        raise ValueError(f"{spec!r} must reference a Mechanism subclass")
     return cls
+
+
+HOOK_NAMES = frozenset({
+    "on_submit", "on_claim", "on_turn", "on_director_review",
+    "hides_rank_info", "on_run_end",
+})
+AGENT_HOOKS = frozenset({"on_submit", "on_claim", "on_turn"})
+
+
+class ConditionalMechanism(Mechanism):
+    """Gate hook dispatch, including state changes, before calling an extension."""
+
+    def __init__(self, mechanism: Mechanism, when: dict):
+        self.inner = mechanism
+        self.name = mechanism.name
+        if not isinstance(when, dict):
+            raise ValueError("mechanism.when must be a table")
+        unknown = set(when) - {"hooks", "agent_ids", "targets", "severities", "accepted"}
+        if unknown:
+            raise ValueError(f"Unknown mechanism.when keys: {sorted(unknown)}")
+        for key in ("hooks", "agent_ids", "targets", "severities"):
+            if key in when and (not isinstance(when[key], list) or
+                                not all(isinstance(x, str) for x in when[key])):
+                raise ValueError(f"mechanism.when.{key} must be an array of strings")
+        self.hooks = set(when.get("hooks", HOOK_NAMES))
+        if self.hooks - HOOK_NAMES:
+            raise ValueError(f"Unknown mechanism hooks: {sorted(self.hooks - HOOK_NAMES)}")
+        if "agent_ids" in when and not self.hooks <= AGENT_HOOKS:
+            raise ValueError("agent_ids requires hooks limited to on_submit/on_claim/on_turn")
+        if set(when) & {"targets", "severities", "accepted"} and self.hooks != {"on_submit"}:
+            raise ValueError("targets/severities/accepted require hooks = ['on_submit']")
+        if "accepted" in when and type(when["accepted"]) is not bool:
+            raise ValueError("mechanism.when.accepted must be a boolean")
+        self.when = dict(when)
+
+    def allows(self, hook, agent_id=None):
+        return hook in self.hooks and (
+            "agent_ids" not in self.when or agent_id in self.when["agent_ids"])
+
+    def on_submit(self, agent_id, finding, accepted, reason):
+        if not self.allows("on_submit", agent_id):
+            return NO_EFFECT
+        if "accepted" in self.when and accepted != self.when["accepted"]:
+            return NO_EFFECT
+        if "targets" in self.when and finding.target not in self.when["targets"]:
+            return NO_EFFECT
+        severity = getattr(finding, "severity", "")
+        severity = getattr(severity, "value", severity)
+        if "severities" in self.when and str(severity).lower() not in self.when["severities"]:
+            return NO_EFFECT
+        return self.inner.on_submit(agent_id, finding, accepted, reason)
+
+    def on_claim(self, agent_id, key, success):
+        return self.inner.on_claim(agent_id, key, success) if self.allows("on_claim", agent_id) else NO_EFFECT
+
+    def on_turn(self, agent_id):
+        return self.inner.on_turn(agent_id) if self.allows("on_turn", agent_id) else NO_EFFECT
+
+    def on_director_review(self, scoreboard):
+        return self.inner.on_director_review(scoreboard) if self.allows("on_director_review") else None
+
+    def hides_rank_info(self):
+        return self.inner.hides_rank_info() if self.allows("hides_rank_info") else False
+
+    def on_run_end(self, memories):
+        if self.allows("on_run_end"):
+            self.inner.on_run_end(memories)
 
 
 def build_mechanisms(specs: "list[str] | list[dict] | None") -> list[Mechanism]:
@@ -346,12 +437,19 @@ def build_mechanisms(specs: "list[str] | list[dict] | None") -> list[Mechanism]:
             out.append(cls())
         elif isinstance(spec, dict):
             ref = spec.get("class") or spec.get("name")
-            if not ref:
+            if not isinstance(ref, str) or not ref.strip():
                 raise ValueError(f"Mechanism entry {spec!r} needs a 'name' or 'class' key.")
+            if type(spec.get("enabled", True)) is not bool:
+                raise ValueError("mechanism.enabled must be a boolean")
+            if not spec.get("enabled", True):
+                continue
             cls = _resolve_mechanism_class(ref)
-            kwargs = {k: v for k, v in spec.items() if k not in ("name", "class")}
+            kwargs = {k: v for k, v in spec.items() if k not in ("name", "class", "enabled", "when")}
             try:
-                out.append(cls(**kwargs))
+                instance = cls(**kwargs)
+                if "when" in spec:
+                    instance = ConditionalMechanism(instance, spec["when"])
+                out.append(instance)
             except TypeError as exc:
                 raise ValueError(f"Bad parameters for mechanism {ref!r}: {exc}") from exc
         else:
@@ -359,7 +457,7 @@ def build_mechanisms(specs: "list[str] | list[dict] | None") -> list[Mechanism]:
     return out
 
 
-def apply_run_end(all_memories_by_run: list[list[Any]]) -> None:
+def apply_run_end(all_memories_by_run: list[Any]) -> None:
     """Call on_run_end once per mechanism TYPE that appears across any memory
     in this run, passing it all memories (so team_rivalry can compare teams).
     all_memories_by_run is just the flat list of every SharedMemory in the run
