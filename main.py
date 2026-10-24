@@ -22,7 +22,7 @@ from commands.base import REGISTRY
 _log_file_path: str | None = None
 
 
-def setup_logging(verbose: bool = False):
+def setup_logging(verbose: bool = False, quiet_console: bool = False):
     global _log_file_path
     level = logging.DEBUG if verbose else logging.INFO
 
@@ -37,12 +37,15 @@ def setup_logging(verbose: bool = False):
 
     fmt = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 
+    console = logging.StreamHandler()
+    console.set_name("fantasma.console")
+    console.setLevel(logging.CRITICAL + 1 if quiet_console else level)
     logging.basicConfig(
         level=level,
         format=fmt,
         datefmt="%H:%M:%S",
         handlers=[
-            logging.StreamHandler(),
+            console,
             logging.FileHandler(_log_file_path, encoding="utf-8"),
         ],
     )
@@ -150,7 +153,7 @@ def main():
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:] or ["full"])
     if args.command != "profiles":
-        setup_logging(args.verbose)
+        setup_logging(args.verbose, quiet_console=args.command == "full" and not args.verbose)
 
     try:
         asyncio.run(async_main(args))

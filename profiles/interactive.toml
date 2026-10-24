@@ -17,6 +17,7 @@ provider = "direct"
 mode = "terminal"
 max_iterations = 20
 max_tool_calls = 50
+diagnostics = false  # Console diagnostics are opt-in; file logs remain enabled.
 
 [mechanisms]
 enabled = []

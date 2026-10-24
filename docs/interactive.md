@@ -33,6 +33,29 @@ There is one pentester in this conversational implementation. It uses the
 the cost budget applies across the session. No model or browser is created until
 your first plain-text request. Controls such as `/status` do not call a model.
 
+## Console output
+
+Interactive sessions hide diagnostic console logs by default, while retaining
+logs under `data/logs/`. Responses and actionable session errors remain visible.
+A `Thinking…` status appears as soon as you send a request; you can still send
+redirects or `/stop` while it runs. The next `you>` prompt follows the response.
+
+Enable console diagnostics for a session:
+
+```bash
+fantasma full --diagnostics
+# Global verbose flag is also supported (before the subcommand):
+fantasma --verbose full
+```
+
+Or enable them in a custom profile:
+
+```toml
+[interaction]
+mode = "terminal"
+diagnostics = true
+```
+
 ## Example conversation
 
 ```text

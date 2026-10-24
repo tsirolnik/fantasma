@@ -21,7 +21,7 @@ starts a real run. TOML can import Python extensions, including during inspectio
 | `methodology` | `type = "pentest"`; other keys go to constructor | Swarm worker instructions; built-ins honor `extra_instructions`; rebuilt briefings honor `turn_template` |
 | `target` | `provider = "auto"`; other keys go to constructor | Lab/swarm target selection; `auto` uses direct targets when supplied, otherwise discovery; `direct` requires `--targets` |
 | `topology` | `mode = "swarm"`, `agents_per_team = 4`, `num_teams = 1` | Engine selection and swarm size; multiple teams use swarm mode |
-| `interaction` | `mode = "batch"`; pentester-only `max_iterations = 20`, `max_tool_calls = 50` | Interface selection independent of topology; see [interaction](interaction.md) |
+| `interaction` | `mode = "batch"`, `diagnostics = false`; pentester-only `max_iterations = 20`, `max_tool_calls = 50` | Interface selection independent of topology; see [interaction](interaction.md) |
 | `workflow` | `stages`, `worker_mode`, `max_scan_targets`; see [lab](lab.md) | Sequential lab workflow only |
 | `mechanisms` | `enabled = []`; optional `[[mechanisms.items]]` entries | Additive swarm incentive hooks; see [mechanisms](mechanisms.md) |
 | `scoring` | `default_accepted = 10`, `rejected = -10`, `duplicate = -5`, `termination_threshold = -50` | Shared-memory base scoring and worker termination |

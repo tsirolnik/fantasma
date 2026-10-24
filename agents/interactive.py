@@ -54,7 +54,7 @@ While work runs, new text redirects it before a subsequent model call.
 """
 
 
-async def terminal_lines():
+async def terminal_lines(session=None):
     """Read terminal or piped lines without an uncancellable input thread."""
     loop = asyncio.get_running_loop()
     queue = asyncio.Queue()
@@ -69,7 +69,7 @@ async def terminal_lines():
     loop.add_reader(fd, readable)
     try:
         while True:
-            if sys.stdin.isatty():
+            if sys.stdin.isatty() and not (session and session.task and not session.task.done()):
                 print("you> ", end="", flush=True)
             line = await queue.get()
             if not line:
@@ -92,6 +92,9 @@ class InteractiveSession:
         self.agent = None
         self.browser = None
         self.task = None
+        self.terminal_prompt = False
+        self.diagnostics = (getattr(args, "diagnostics", False) or
+                            getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
         self.budget = args.budget if args.budget is not None else get_settings().session_budget
 
@@ -137,7 +140,8 @@ class InteractiveSession:
             max_total_tool_calls=self.profile.interaction.max_tool_calls,
         )
         self.agent.session_budget = self.budget
-        self.agent.on_tool_start = lambda name, tool, params: self.write(f'[tool] {tool}')
+        if self.diagnostics:
+            self.agent.on_tool_start = lambda name, tool, params: self.write(f'[tool] {tool}')
         self.set_scope(self.scope)
 
     def set_scope(self, scope):
@@ -160,6 +164,8 @@ class InteractiveSession:
             raise
         except Exception as exc:
             self.write(f'Session error: {exc}')
+        if self.terminal_prompt:
+            print('you> ', end='', flush=True)
 
     async def stop(self):
         if self.task and not self.task.done():
@@ -208,6 +214,7 @@ class InteractiveSession:
             else:
                 self.write('Agent is starting. Please resend after startup or use /stop.')
         else:
+            self.write('Thinking… (you can keep typing to redirect, or /stop)')
             self.task = asyncio.create_task(self.ask(text))
         return True
 
@@ -230,13 +237,14 @@ class InteractiveSession:
 
 async def run_interactive(profile, llm_config, args, mechanisms):
     session = InteractiveSession(profile, llm_config, args, mechanisms)
+    session.terminal_prompt = sys.stdin.isatty() and sys.stdout.isatty()
     web_ui = None
     try:
         if getattr(args, "web", False) or profile.dashboard.enabled:
             from web.interactive import InteractiveWebUI
             web_ui = InteractiveWebUI(session)
             await web_ui.start()
-        await session.run(terminal_lines())
+        await session.run(terminal_lines(session))
     finally:
         if web_ui is not None:
             await web_ui.shutdown()

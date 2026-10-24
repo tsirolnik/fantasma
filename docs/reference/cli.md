@@ -113,9 +113,9 @@ options:
 Source: [commands/full.py](../../commands/full.py).
 
 ```text
-usage: fantasma full [-h] [--interaction {batch,terminal,web}] [--top TOP]
-                     [--min-bounty MIN_BOUNTY] [--budget BUDGET] [--auto]
-                     [--dry-run]
+usage: fantasma full [-h] [--diagnostics] [--interaction {batch,terminal,web}]
+                     [--top TOP] [--min-bounty MIN_BOUNTY] [--budget BUDGET]
+                     [--auto] [--dry-run]
                      [--director-llm {claude,gemini,ollama,openai,vertex}]
                      [--director-model DIRECTOR_MODEL]
                      [--worker-llm {claude,gemini,ollama,openai,vertex}]
@@ -135,6 +135,8 @@ usage: fantasma full [-h] [--interaction {batch,terminal,web}] [--top TOP]
 
 options:
   -h, --help            show this help message and exit
+  --diagnostics         Show interactive console diagnostics (also enabled by
+                        global --verbose)
   --interaction {batch,terminal,web}
                         Override terminal/batch interaction; legacy web
                         enables the dashboard

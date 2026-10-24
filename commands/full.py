@@ -7,6 +7,7 @@ from commands.base import Arg, register
 _LLM_CHOICES = ["claude", "gemini", "ollama", "openai", "vertex"]
 
 ARGS = [
+    Arg(("--diagnostics",), dict(action="store_true", help="Show interactive console diagnostics (also enabled by global --verbose)")),
     Arg(("--interaction",), dict(choices=["batch", "terminal", "web"], default=None,
                                  help="Override terminal/batch interaction; legacy web enables the dashboard")),
     Arg(("--top",), dict(type=int, default=5, help="Number of top programs to target")),
@@ -174,6 +175,10 @@ async def _run(args, orchestrator, mcp_runtime) -> None:
         if mode is None:
             mode = profile.topology.mode
     llm_config = apply_cli_llm_overrides(profile.llm, args)
+    from utils.console_logging import configure_console_logging
+    diagnostics = getattr(args, "diagnostics", False) or getattr(args, "verbose", False) or profile.interaction.diagnostics
+    configure_console_logging(quiet=mode in ("pentester", "interactive") and not diagnostics,
+                              debug=bool(diagnostics))
 
     if profile.mcp and mode == "lab" and profile.workflow.worker_mode != "tool":
         raise ValueError("Lab MCP requires workflow.worker_mode = tool")
