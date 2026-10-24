@@ -1,0 +1,43 @@
+# The framework's original/default behavior, as a plain config file — this is
+# original/default behavior, with nothing special-cased in code anymore.
+# Run it with: python main.py full --profile profiles/bugbounty.toml ...
+#
+# NOTE: the built-in name "bugbounty" does NOT read this file — load_profile()
+# checks BUILTIN_PROFILES first and returns profiles.BUGBOUNTY (a Python
+# object) without touching disk. This TOML is maintained separately to carry
+# the same values, as the example of "default behavior expressed as data";
+# there is no enforcement that keeps the two in sync if either one changes.
+
+[profile]
+name = "bugbounty"
+description = "Public bug-bounty web app hunting (the original/default behavior)."
+
+[methodology]
+type = "pentest"
+
+[target]
+# "auto" = direct --targets if given, else bug-bounty platform discovery
+# (HackerOne/Bugcrowd/Intigriti/YesWeHack) + ROI ranking.
+provider = "auto"
+
+[topology]
+mode = "swarm"
+agents_per_team = 4
+num_teams = 1
+
+[mechanisms]
+# Empty = unmodified baseline scoring/dedup/termination, no additive game-theory layer.
+# Try adding e.g. ["first_finder_bonus", "duplicate_escalation"].
+enabled = []
+
+[scoring]
+default_accepted = 10
+rejected = -10
+duplicate = -5
+termination_threshold = -50
+
+[scoring.accepted]
+critical = 50
+high = 30
+medium = 15
+low = 5

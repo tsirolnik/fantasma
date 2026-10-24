@@ -1,0 +1,200 @@
+{
+  "_comment": "Ground-truth manifest for the swarmhound benchmark. Each target lists the vulnerability CLASSES known to be present (these apps are documented, intentionally-vulnerable teaching targets). Scoring is class-level: a finding counts as a hit if its vuln_type OR its title/description/evidence text matches any alias for a ground-truth class. This is deliberately generous on taxonomy (the agent may label an XSS as 'misconfiguration') but strict on target+class, which is the honest way to score an autonomous agent.",
+  "vuln_classes": {
+    "sql_injection": [
+      "sql injection",
+      "sqli",
+      "' or 1=1",
+      "union select",
+      "union sqli",
+      "sqlmap"
+    ],
+    "nosql_injection": [
+      "nosql",
+      "nosql injection",
+      "mongodb injection",
+      "operator injection",
+      "$gt",
+      "$ne",
+      "$where"
+    ],
+    "xss": [
+      "xss",
+      "cross-site scripting",
+      "reflected script",
+      "stored script",
+      "<script>"
+    ],
+    "broken_access_control": [
+      "idor",
+      "broken access",
+      "insecure direct object",
+      "privilege escalation",
+      "unauthorized access",
+      "forced browsing"
+    ],
+    "broken_authentication": [
+      "broken auth",
+      "weak password",
+      "credential stuffing",
+      "brute force",
+      "default credentials",
+      "jwt",
+      "session fixation"
+    ],
+    "sensitive_data_exposure": [
+      "info disclosure",
+      "information disclosure",
+      "sensitive data",
+      "secret exposure",
+      "api key",
+      "hardcoded",
+      "backup file",
+      "source disclosure"
+    ],
+    "sensitive_path": [
+      "sensitive path",
+      "exposed path",
+      "admin panel",
+      "directory listing",
+      "git exposure",
+      "/.git",
+      "ftp",
+      "config file"
+    ],
+    "security_misconfig": [
+      "misconfiguration",
+      "missing security headers",
+      "verbose error",
+      "stack trace",
+      "cors",
+      "debug mode",
+      "default config"
+    ],
+    "known_cve": [
+      "cve-",
+      "known cve",
+      "vulnerable component",
+      "outdated",
+      "known vulnerability"
+    ],
+    "command_injection": [
+      "command injection",
+      "os command",
+      "rce",
+      "remote code execution",
+      "shell"
+    ],
+    "file_inclusion": [
+      "file inclusion",
+      "lfi",
+      "rfi",
+      "path traversal",
+      "directory traversal",
+      "../"
+    ],
+    "csrf": [
+      "csrf",
+      "cross-site request forgery"
+    ],
+    "ssrf": [
+      "ssrf",
+      "server-side request forgery"
+    ],
+    "xxe": [
+      "xxe",
+      "xml external entity"
+    ],
+    "mass_assignment": [
+      "mass assignment",
+      "excessive data exposure",
+      "bola",
+      "bfla"
+    ],
+    "business_logic": [
+      "business logic",
+      "logic flaw",
+      "negative quantity",
+      "negative price",
+      "price manipulation",
+      "money minting",
+      "wallet",
+      "coupon"
+    ]
+  },
+  "targets": [
+    {
+      "name": "juice-shop",
+      "healthcheck_url": "http://localhost:3000/rest/admin/application-version",
+      "host_url": "http://localhost:3000",
+      "sandbox_host": "bench-juice-shop:3000",
+      "kind": "web",
+      "ground_truth": [
+        "sql_injection",
+        "nosql_injection",
+        "xss",
+        "broken_access_control",
+        "broken_authentication",
+        "mass_assignment",
+        "sensitive_data_exposure",
+        "sensitive_path",
+        "security_misconfig",
+        "known_cve",
+        "file_inclusion",
+        "csrf",
+        "ssrf",
+        "xxe",
+        "business_logic"
+      ]
+    },
+    {
+      "name": "dvwa",
+      "healthcheck_url": "http://localhost:8080/login.php",
+      "host_url": "http://localhost:8080",
+      "sandbox_host": "bench-dvwa:80",
+      "kind": "web",
+      "ground_truth": [
+        "sql_injection",
+        "xss",
+        "command_injection",
+        "file_inclusion",
+        "csrf",
+        "broken_authentication",
+        "broken_access_control",
+        "security_misconfig"
+      ]
+    },
+    {
+      "name": "vampi",
+      "healthcheck_url": "http://localhost:5001/",
+      "host_url": "http://localhost:5001",
+      "sandbox_host": "bench-vampi:5000",
+      "kind": "api",
+      "ground_truth": [
+        "sql_injection",
+        "broken_authentication",
+        "broken_access_control",
+        "mass_assignment",
+        "sensitive_data_exposure"
+      ]
+    },
+    {
+      "name": "papertrail",
+      "healthcheck_url": "http://localhost:5002/",
+      "host_url": "http://localhost:5002",
+      "sandbox_host": "bench-papertrail:5002",
+      "kind": "api",
+      "_note": "BLIND test — custom never-published app; ground truth = the 8 planted vulns in blindapp/app.py",
+      "ground_truth": [
+        "sql_injection",
+        "broken_access_control",
+        "broken_authentication",
+        "mass_assignment",
+        "business_logic",
+        "ssrf",
+        "command_injection",
+        "sensitive_data_exposure"
+      ]
+    }
+  ]
+}

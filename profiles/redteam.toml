@@ -1,0 +1,35 @@
+# Internal adversary-simulation engagement: fixed asset list (no bug-bounty
+# platform discovery), objective-driven methodology (foothold -> privesc ->
+# lateral movement -> objective) instead of public-web bug-class hunting.
+# Run it with: python main.py full --profile profiles/redteam.toml --targets <scope> ...
+
+[profile]
+name = "redteam"
+description = "Internal adversary-simulation engagement against a fixed asset list."
+
+[methodology]
+type = "redteam"
+
+[target]
+# Always direct --targets — no bug-bounty platform concept applies here.
+provider = "direct"
+
+[topology]
+mode = "swarm"
+agents_per_team = 4
+num_teams = 1
+
+[mechanisms]
+enabled = []
+
+[scoring]
+default_accepted = 10
+rejected = -10
+duplicate = -5
+termination_threshold = -50
+
+[scoring.accepted]
+critical = 50
+high = 30
+medium = 15
+low = 5

@@ -1,0 +1,43 @@
+# Python and build outputs
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+
+# Local configuration and runtime artifacts
+.env
+.env.*
+!.env.example
+data/
+output/
+benchmark/results/
+*.log
+*.pid
+
+# Personal experiments, model weights and local tooling
+experiments/
+training/
+Modelfile*
+*.gguf
+*.safetensors
+*.bin
+*.pt
+google-cloud-sdk/
+.claude/
+docs/reviews/
+docker/*.tar
+
+# Editors and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+=*

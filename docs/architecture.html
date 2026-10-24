@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>swarmhound architecture</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 1400px; margin: 40px auto; padding: 0 20px; line-height: 1.55; color: #1a1a1a; }
+  pre { background: #f4f4f4; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  code { background: #f0f0f0; padding: 2px 5px; border-radius: 3px; font-size: 0.92em; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
+  th { background: #f7f7f7; }
+  h1, h2, h3 { border-bottom: 1px solid #eee; padding-bottom: 6px; }
+  .mermaid { text-align: center; margin: 1.5em 0; overflow-x: auto; }
+  .mermaid svg { min-width: 850px; }
+  #status { position: fixed; top: 8px; right: 8px; font: 12px monospace; background: #fffae0; padding: 4px 8px; border-radius: 4px; z-index: 999; }
+</style>
+</head>
+<body>
+<div id="status">loading…</div>
+<div id="content"></div>
+<textarea id="md-src" style="display:none"># swarmhound — A configurable engine with runtime feedback
+
+The framework is **assembled from a profile**, then **adapts while it runs**.
+Bug-bounty research is one configuration of the swarm engine. The diagrams below
+show both kinds of dynamism: component selection and feedback during execution.
+
+## 1. Compose the run
+
+Purple components support built-in names or custom Python classes. Gold nodes
+configure behavior and topology. Dotted arrows describe configuration applied
+when constructing a run—not live hot-swapping.
+
+```mermaid
+flowchart TB
+    PROFILE[&quot;TOML profile + explicit CLI overrides&quot;] --&gt; LOAD[&quot;Resolve components and parameters&quot;]
+    LOAD -. &quot;Select / instantiate&quot; .-&gt; TARGET[&quot;Target provider&lt;br/&gt;Built-in or module:ClassName + kwargs&quot;]
+    LOAD -. &quot;Select / instantiate&quot; .-&gt; METHOD[&quot;Methodology&lt;br/&gt;Built-in or module:ClassName + kwargs&quot;]
+    LOAD -. &quot;Compose / tune&quot; .-&gt; MECH[&quot;Mechanisms&lt;br/&gt;Names or custom classes + parameters&quot;]
+    LOAD -. &quot;Configure&quot; .-&gt; POLICY[&quot;Scoring + coordination policies&lt;br/&gt;Rewards, thresholds, claims, review cadence&quot;]
+    LOAD -. &quot;Configure&quot; .-&gt; TOPO[&quot;Topology + per-role LLMs&lt;br/&gt;Team count, worker count, provider / model&quot;]
+    TARGET --&gt;|&quot;Resolve scope&quot;| ENGINE[&quot;Swarm orchestration engine&quot;]
+    METHOD --&gt;|&quot;System prompt + optional turn template&quot;| ENGINE
+    MECH --&gt;|&quot;Event hooks&quot;| ENGINE
+    POLICY --&gt;|&quot;Rules for scoring and coordination&quot;| ENGINE
+    TOPO --&gt;|&quot;Construct teams and agents&quot;| ENGINE
+    ENGINE --&gt; TEAM[&quot;AgentTeam × configured team count&lt;br/&gt;One shared Director, separate team memories&quot;]
+    classDef extension fill:#eef2ff,stroke:#6366f1,color:#20204a;
+    class TARGET,METHOD,MECH extension;
+    classDef config fill:#fff4df,stroke:#d18b17,color:#523600;
+    class PROFILE,LOAD,POLICY,TOPO config;
+```
+
+| Change in the profile | What changes in the running system |
+|---|---|
+| `[target] provider` and extra fields | How scope is obtained; custom provider classes receive extra fields as constructor arguments |
+| `[methodology] type` and extra fields | How workers are instructed to reason; built-ins support additional instructions and a turn-template override |
+| `[mechanisms] enabled` / `[[mechanisms.items]]` | Which event-driven incentives run and their parameters; custom mechanism classes are supported |
+| `[scoring]` | Accepted/rejected/duplicate scores and the worker termination threshold |
+| `[coordination]` | Exclusive/shared claims, monitor cadence, cross-team intelligence sharing |
+| `[topology]` | Team count and workers per team; multi-team runs use AgentGroup on the same swarm engine |
+| `[llm.director]`, `[llm.default_worker]`, `[llm.overrides.*]` | Provider and model selection by role or agent |
+
+For example, `profiles/competitive.toml` selects three teams of three workers,
+shared claims, tuned mechanism bonuses, and distinct Director/worker models.
+`profiles/bugbounty.toml` selects one team of four workers without additive
+mechanisms. Those are data choices, not separate orchestration implementations.
+
+## 2. Adapt during execution
+
+Green nodes form feedback loops. The worker does not follow a fixed scanner
+sequence: it chooses the next tool from the latest state. Monitoring and
+validation run concurrently with that loop.
+
+```mermaid
+flowchart TB
+    CONTEXT[&quot;Rebuild worker context&lt;br/&gt;Scope, budget, facts, leads, last results&quot;] --&gt; LLM[&quot;Worker LLM chooses next action&quot;]
+    LLM --&gt; TOOL[&quot;Tool registry + execution checks&quot;]
+    TOOL --&gt; EXEC[&quot;HTTP / browser / Docker / code&lt;br/&gt;Interact with target systems&quot;]
+    EXEC --&gt;|&quot;Result / error / evidence&quot;| STATE[&quot;Agent-local observations and distilled state&quot;]
+    STATE --&gt;|&quot;Next turn&quot;| CONTEXT
+
+    TOOL &lt;--&gt;|&quot;Memory tools: claim, read, post, submit&quot;| MEMORY[(&quot;Per-team SharedMemory&lt;br/&gt;Feed, claims, findings, scores&quot;)]
+    MEMORY --&gt;|&quot;Submission / claim events&quot;| HOOK[&quot;Configured mechanism hooks&lt;br/&gt;Additional rewards, penalties, feedback&quot;]
+    HOOK --&gt;|&quot;Score effects / messages&quot;| MEMORY
+
+    MEMORY --&gt;|&quot;Progress and scores&quot;| MON[&quot;Team monitor&quot;]
+    STATE --&gt;|&quot;Recent tool activity&quot;| MON
+    MON --&gt;|&quot;Periodic review&quot;| DIR[&quot;Shared Director&quot;]
+    DIR --&gt;|&quot;Redirects + score changes&quot;| MON
+    MON --&gt;|&quot;Directive queue → worker notes&quot;| CONTEXT
+    MON --&gt;|&quot;Apply score changes&quot;| MEMORY
+    MON --&gt;|&quot;Score below configured threshold&quot;| REPLACE[&quot;Cancel worker, release claims&lt;br/&gt;Spawn replacement within slot limit&quot;]
+    REPLACE --&gt;|&quot;New worker uses prior shared work&quot;| CONTEXT
+
+    MEMORY --&gt;|&quot;First finding launches verification&quot;| VAL[&quot;Validator / cross-team auditor&quot;]
+    VAL --&gt;|&quot;Re-test with tools&quot;| EXEC
+    EXEC --&gt;|&quot;Verification evidence&quot;| VAL
+    VAL --&gt;|&quot;Update finding verdict in memory&quot;| MEMORY
+
+    MEMORY --&gt;|&quot;Accepted submission&quot;| STORE[(&quot;SQLite + optional graph&lt;br/&gt;Persist before verification&quot;)]
+    MEMORY --&gt;|&quot;Run ends&quot;| END[&quot;Run-end mechanism hooks&lt;br/&gt;Collect findings, synthesize chains, debrief&quot;]
+    END --&gt; REPORT[&quot;ReportWorker → Markdown reports&quot;]
+    classDef feedback fill:#e6f5ee,stroke:#338466,color:#133c2b;
+    class CONTEXT,STATE,MON,DIR,REPLACE feedback;
+    classDef extension fill:#eef2ff,stroke:#6366f1,color:#20204a;
+    class HOOK extension;
+```
+
+**What changes live:**
+
+- Tool outcomes update observations, repeated-endpoint tracking and distilled
+  facts/leads. The next worker prompt is rebuilt from that state.
+- Director reviews return redirects and score adjustments. Team monitors apply
+  them; directives enter worker notes for context distillation.
+- Accepted/rejected findings and claims trigger the configured mechanism hooks.
+  Scores can influence subsequent behavior and worker lifecycle.
+- Low-scoring workers can be terminated and replaced. Claims are released and a
+  replacement is instructed to consult prior shared work; respawns have a limit.
+- The first finding starts a validator or cross-team auditor. Its verdict updates
+  the same in-memory finding objects while workers continue.
+- The dashboard can pause/resume/stop the run, change its effective budget and
+  inject directives through PipelineBridge. Group monitoring checks the shared
+  budget and optionally broadcasts cross-team intelligence.
+
+**What the diagram does not imply:** profiles are not hot-reloaded mid-run;
+workers do not rewrite the profile or automatically choose a new model. A
+verification verdict does not itself trigger the submission persistence callback.
+Report handoff is not restricted to verified findings. The group monitor does
+not dynamically reallocate budget between teams.
+
+## 3. Extension hooks and implementation boundaries
+
+| Event / extension | Actual connection |
+|---|---|
+| Submission | `SharedMemory.submit_finding` → quality gates / dedup / base scoring → persistence on acceptance → `on_submit` effects |
+| Claim | Shared-memory claim handling → `on_claim` effects |
+| Turn | `turn_lines()` → `on_turn`; currently called by the history-based digest, **not the rebuilt-context pentester path** |
+| Director review | `director_lines()` → `on_director_review` for additional review context |
+| Run completion | `apply_run_end()` → configured end-of-run bonuses |
+| Tool extension | `ToolRegistry.register()` / `merge()` allow tool composition in code; there is no general TOML tool-plugin loader shown here |
+
+The optional graph supplies context through graph tools and receives findings.
+An optional recorder also writes shared-memory observations to the graph; the
+current multi-team recorder watches the first team only. SQLite, the graph,
+MessageBus, CostTracker, Director and browser pool are shared run services.
+SharedMemory, claims, scores and workers belong to individual teams. Browser
+sessions and local observations belong to individual agents.
+
+The separate `lab` engine uses discovery → recon → scan → analysis → reporting.
+The composition and feedback diagrams above describe the swarm implementation;
+not every profile feature is consumed by the lab path.
+
+## Code behind the diagram
+
+- `profiles/loader.py`: class resolution, constructor kwargs, policy and model configuration
+- `commands/full.py`: CLI precedence and assembly of the pipeline
+- `agents/methodology.py`, `agents/target_provider.py`: replaceable strategies
+- `agents/tool_agent.py`, `agents/turn_context.py`: tool loop and state rebuilding
+- `agents/team.py`: reviews, redirects, termination and replacement
+- `agents/group.py`: team orchestration, auditor and cross-team intelligence
+- `memory/shared.py`, `memory/mechanisms.py`: hook dispatch and scoring effects
+- `agents/swarm_pipeline.py`: persistence, finalization and report handoff
+- `web/bridge.py`: live human controls
+
+Checked against the repository on **24 October 2026**.
+</textarea>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    const status = document.getElementById('status');
+    try {
+      if (typeof marked === 'undefined') throw new Error('marked.js failed to load');
+      if (typeof mermaid === 'undefined') throw new Error('mermaid.js failed to load');
+
+      const src = document.getElementById('md-src').value;
+      marked.setOptions({ gfm: true, breaks: false });
+      const renderer = new marked.Renderer();
+      const origCode = renderer.code.bind(renderer);
+      renderer.code = function(code, lang) {
+        if (lang === 'mermaid') {
+        const element = document.createElement('div');
+        element.className = 'mermaid';
+        element.textContent = code;
+        return element.outerHTML;
+      }
+        return origCode(code, lang);
+      };
+      document.getElementById('content').innerHTML = marked.parse(src, { renderer });
+
+      const n = document.querySelectorAll('.mermaid').length;
+      mermaid.initialize({ startOnLoad: false, theme: 'default' });
+      mermaid.run({ querySelector: '.mermaid' })
+        .then(() => { document.documentElement.dataset.diagrams = 'ready'; status.textContent = n + ' diagram(s) rendered ✓'; setTimeout(() => status.remove(), 2000); })
+        .catch(e => { document.documentElement.dataset.diagrams = 'error'; status.textContent = 'mermaid.run error: ' + e.message; status.style.background = '#ffd6d6'; console.error(e); });
+    } catch (e) {
+      status.textContent = 'ERROR: ' + e.message;
+      status.style.background = '#ffd6d6';
+      console.error(e);
+    }
+  });
+</script>
+</body>
+</html>

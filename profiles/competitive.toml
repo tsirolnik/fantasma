@@ -1,0 +1,83 @@
+# Demonstrates the full knob set: tuned mechanism parameters, and a
+# multi-team (cross-team competition) topology defined entirely here — no
+# code changes needed to go from "bugbounty.toml"'s single cooperative team
+# to this. Delete a line from [[mechanisms.items]] to remove that mechanism;
+# set num_teams = 1 to go back to a single team with no cross-team rivalry.
+# Run it with: python main.py full --profile profiles/competitive.toml ...
+
+[profile]
+name = "competitive"
+description = "Tuned, multi-team competitive run — knobs raised, cross-team rivalry on."
+
+[methodology]
+type = "pentest"
+
+[target]
+provider = "auto"
+
+[topology]
+# mode is always "swarm" — there is no separate "group" mode. num_teams > 1
+# is the ONLY thing that makes multi-team competition real; num_teams = 1
+# would make team_rivalry_pool a no-op (nothing to rival) even with the
+# mechanism enabled below.
+mode = "swarm"
+agents_per_team = 3
+num_teams = 3
+
+[mechanisms]
+# Tuned knobs (not the defaults) + a mix of per-agent and per-team mechanisms.
+# To "remove competition": delete the team_rivalry_pool / relative_rank_bonus
+# entries, or just set num_teams = 1 above.
+[[mechanisms.items]]
+name = "first_finder_bonus"
+bonus = 25                  # default is 15 — bigger reward for covering new ground
+
+[[mechanisms.items]]
+name = "duplicate_escalation"
+step = 10                   # default is 5 — collisions hurt more
+
+[[mechanisms.items]]
+name = "team_rivalry_pool"
+pool = 120                  # default is 60 — bigger end-of-run team prize
+
+[[mechanisms.items]]
+name = "relative_rank_bonus"
+[mechanisms.items.multipliers]
+"1" = 0.75                  # 1st place: +75% of score (default 50%)
+"2" = 0.35                  # 2nd place: +35% (default 20%)
+
+[scoring]
+default_accepted = 10
+rejected = -10
+duplicate = -5
+termination_threshold = -50
+
+[scoring.accepted]
+critical = 50
+high = 30
+medium = 15
+low = 5
+
+# Per-agent LLM selection — the director reasons on a stronger model than the
+# workers that just need to drive tools; the analyzer gets its own override.
+[llm.director]
+provider = "claude"
+model = ""  # Use the configured provider default; set a model to override.
+
+[llm.default_worker]
+provider = "ollama"
+model = ""  # Uses OLLAMA_MODEL from settings.
+
+[llm.overrides.analyzer]
+provider = "claude"
+model = ""  # Use the configured provider default.
+
+# "shared" claims: multiple agents MAY work the same in-scope target at once
+# (first_finder_bonus above already makes colliding pointless, so there's no
+# need for an exclusive lock that would idle agents once targets < agents).
+# Scope enforcement is NEVER affected by this — only exclusivity between
+# agents on an already-in-scope target.
+[coordination]
+claim_mode = "shared"
+director_review_interval_s = 20
+cross_team_sharing = true

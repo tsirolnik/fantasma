@@ -1,0 +1,2156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>swarmhound</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 15px; font-weight: 600; }
+  .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .status-badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-running { background: rgba(63,185,80,0.15); color: var(--green); }
+  .status-running .dot { background: var(--green); animation: pulse 2s infinite; }
+  .status-paused { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .status-paused .dot { background: var(--yellow); }
+  .status-stopped { background: rgba(248,81,73,0.15); color: var(--red); }
+  .status-stopped .dot { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Info bar */
+  .info-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .info-bar span { display: flex; align-items: center; gap: 4px; }
+  .info-bar .label { color: var(--text-dim); }
+  .info-bar .value { color: var(--text); font-weight: 500; }
+  .controls { margin-left: auto; display: flex; gap: 6px; }
+  .controls button {
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger:hover { border-color: var(--red) !important; color: var(--red) !important; }
+
+  /* Main layout */
+  .main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* Event stream (left) */
+  .stream-panel {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+  .stream-header {
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .stream {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+
+  .event {
+    padding: 4px 12px;
+    border-left: 3px solid transparent;
+    transition: background 0.15s;
+  }
+  .event:hover { background: rgba(255,255,255,0.02); }
+  .event .time { color: var(--text-dim); font-size: 11px; margin-right: 8px; }
+  .event .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .event .sender { color: var(--cyan); font-weight: 500; }
+  .event .content { color: var(--text); cursor: pointer; }
+  .event .content.expanded { white-space: pre-wrap; word-break: break-all; }
+  .event .content .expand-hint { color: var(--text-dim); font-size: 11px; }
+
+  /* Model call events */
+  .event-llm_call { border-left-color: var(--yellow); }
+  .event-llm_call .tag { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  /* Agent reasoning (why they do things) */
+  .event-reasoning { border-left-color: var(--cyan); }
+  .event-reasoning .tag { background: rgba(57,210,192,0.15); color: var(--cyan); }
+  .event-reasoning .content { color: var(--text); font-style: italic; }
+
+  /* Event type colors */
+  .event-phase { border-left-color: var(--accent); }
+  .event-phase .tag { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .event-tool { border-left-color: var(--text-dim); }
+  .event-tool .tag { background: rgba(139,148,158,0.15); color: var(--text-dim); }
+  .event-decision { border-left-color: var(--purple); }
+  .event-decision .tag { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .event-concern { border-left-color: var(--orange); }
+  .event-concern .tag { background: rgba(219,109,40,0.15); color: var(--orange); }
+  .event-task_result { border-left-color: var(--green); }
+  .event-task_result .tag { background: rgba(63,185,80,0.15); color: var(--green); }
+  .event-directive { border-left-color: var(--red); }
+  .event-directive .tag { background: rgba(248,81,73,0.15); color: var(--red); }
+  .event-agent_done { border-left-color: var(--orange); }
+  .event-agent_done .tag { background: rgba(219,109,40,0.15); color: var(--orange); }
+  .event-debrief { border-left-color: var(--cyan); }
+  .event-debrief .tag { background: rgba(57,210,192,0.15); color: var(--cyan); }
+  .event-debrief .content { white-space: pre-wrap; }
+  .event-response { border-left-color: var(--purple); }
+  .event-response .tag { background: rgba(163,113,247,0.15); color: var(--purple); }
+  .event-response .content { white-space: pre-wrap; }
+  .event-recorder { border-left-color: var(--green); }
+  .event-recorder .tag { background: rgba(63,185,80,0.15); color: var(--green); }
+
+  /* LLM Thinking Stream */
+  .thinking-entry {
+    padding: 6px 10px;
+    border-left: 3px solid var(--purple);
+    margin-bottom: 2px;
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+  .thinking-entry:hover { background: rgba(255,255,255,0.02); }
+  .thinking-entry .think-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .thinking-entry .think-agent {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .thinking-entry .think-model {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-right: 6px;
+  }
+  .thinking-entry .think-meta {
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+  .thinking-entry .think-summary {
+    color: var(--text);
+    margin-top: 3px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .thinking-entry .think-thinking {
+    color: var(--purple);
+    font-style: italic;
+    margin-top: 3px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .thinking-entry .think-tools {
+    color: var(--cyan);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  .thinking-entry .think-detail {
+    display: none;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .thinking-entry .think-detail.open { display: block; }
+  .thinking-entry .think-prompt {
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(88,166,255,0.06);
+    border-left: 2px solid var(--accent);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 6px;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .thinking-entry .think-response {
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(63,185,80,0.06);
+    border-left: 2px solid var(--green);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    color: var(--text);
+    font-size: 11px;
+  }
+  .event-default .tag { background: rgba(139,148,158,0.1); color: var(--text-dim); }
+
+  /* Checkpoint */
+  .checkpoint {
+    margin: 6px 12px;
+    padding: 10px 12px;
+    background: rgba(210,153,34,0.08);
+    border: 1px solid rgba(210,153,34,0.3);
+    border-radius: 6px;
+  }
+  .checkpoint .chk-title {
+    font-weight: 600;
+    color: var(--yellow);
+    margin-bottom: 6px;
+  }
+  .checkpoint pre {
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    margin-bottom: 8px;
+  }
+  .checkpoint .chk-cost { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .checkpoint .chk-actions { display: flex; gap: 6px; }
+  .checkpoint .chk-actions button {
+    padding: 4px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .chk-continue { border-color: var(--green) !important; color: var(--green) !important; }
+  .chk-continue:hover { background: rgba(63,185,80,0.15) !important; }
+  .chk-skip { border-color: var(--yellow) !important; color: var(--yellow) !important; }
+  .chk-skip:hover { background: rgba(210,153,34,0.15) !important; }
+  .chk-abort { border-color: var(--red) !important; color: var(--red) !important; }
+  .chk-abort:hover { background: rgba(248,81,73,0.15) !important; }
+
+  /* Sidebar (right) */
+  .sidebar {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .tab-bar button {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab-bar button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-bar button:hover { color: var(--text); }
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* Sidebar content styles */
+  .agent-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .agent-name { font-weight: 500; min-width: 90px; }
+  .agent-stats { color: var(--text-dim); font-size: 11px; flex: 1; text-align: center; }
+  .agent-status { color: var(--text-dim); text-align: right; }
+  .agent-status.active { color: var(--green); }
+
+  .cost-row { display: flex; justify-content: space-between; padding: 4px 0; }
+  .cost-label { color: var(--text-dim); }
+  .cost-value { font-weight: 500; }
+  .cost-total { font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  .memory-section { margin-bottom: 12px; }
+
+  /* Findings cards */
+  .fc-group { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim);
+    border-left: 3px solid var(--border); padding: 2px 0 2px 8px; margin: 12px 0 6px; font-weight: 600; }
+  .fc { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; background: var(--bg); overflow: hidden; }
+  .fc-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; }
+  .fc-head:hover { background: var(--surface); }
+  .fc-sev { font-weight: 700; font-size: 11px; min-width: 56px; }
+  .fc-vs { font-size: 9px; font-weight: 600; border: 1px solid; border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
+  .fc-title { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fc-bounty { color: var(--green); font-size: 12px; font-weight: 600; }
+  .fc-caret { color: var(--text-dim); font-size: 10px; width: 12px; }
+  .fc-target { font-size: 11px; color: var(--text-dim); padding: 0 10px 8px 10px; word-break: break-all; }
+  .fc-body { padding: 0 10px 10px 10px; border-top: 1px solid var(--border); }
+  .fc-field { margin-top: 8px; }
+  .fc-flabel { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); display: block; margin-bottom: 2px; }
+  .fc-fval { font-size: 12px; color: var(--text); white-space: pre-wrap; }
+  .fc-pre { font-size: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    padding: 6px 8px; margin: 2px 0 0; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+  .memory-section h3 { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .memory-section pre { font-size: 12px; white-space: pre-wrap; color: var(--text); }
+  .type-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 2px;
+    border-radius: 4px;
+    font-size: 11px;
+    background: rgba(88,166,255,0.1);
+    color: var(--accent);
+  }
+
+  /* God mode bar */
+  .god-mode {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .god-mode .gm-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--red);
+    white-space: nowrap;
+  }
+  .god-mode select {
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .god-mode input[type="text"] {
+    flex: 1;
+    padding: 5px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .god-mode input[type="text"]:focus { border-color: var(--accent); outline: none; }
+  .god-mode button {
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .god-mode button:hover { border-color: var(--red); color: var(--red); }
+  .quick-actions {
+    display: flex;
+    gap: 4px;
+    padding: 4px 12px 8px;
+    background: var(--surface);
+    border-top: none;
+  }
+  .quick-actions button {
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .quick-actions button:hover { color: var(--text); border-color: var(--text-dim); }
+
+  /* Help request notification */
+  .help-request {
+    margin: 6px 12px;
+    padding: 10px 12px;
+    background: rgba(248,81,73,0.08);
+    border: 1px solid rgba(248,81,73,0.3);
+    border-radius: 6px;
+    animation: helpPulse 2s ease-in-out 3;
+  }
+  @keyframes helpPulse {
+    0%, 100% { border-color: rgba(248,81,73,0.3); }
+    50% { border-color: rgba(248,81,73,0.8); }
+  }
+  .help-request .help-title {
+    font-weight: 600;
+    color: var(--red);
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .help-request pre {
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    margin-bottom: 8px;
+  }
+  .help-request .help-context {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .help-request textarea {
+    width: 100%;
+    min-height: 50px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 8px;
+  }
+  .help-request textarea:focus { border-color: var(--accent); outline: none; }
+  .help-request .help-actions { display: flex; gap: 6px; }
+  .help-request .help-actions button {
+    padding: 4px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .help-send { border-color: var(--green) !important; color: var(--green) !important; }
+  .help-send:hover { background: rgba(63,185,80,0.15) !important; }
+  .help-skip { border-color: var(--text-dim) !important; color: var(--text-dim) !important; }
+  .help-skip:hover { background: rgba(139,148,158,0.1) !important; }
+
+  /* Graph neuron events */
+  .event-graph { border-left-color: var(--purple); }
+  .event-graph .tag {
+    background: rgba(188,140,255,0.2);
+    color: var(--purple);
+    animation: neuronFire 0.6s ease-out;
+  }
+  .event-graph .content { color: var(--text); }
+  .event-graph .neuron-icon { margin-right: 4px; }
+  @keyframes neuronFire {
+    0% { background: rgba(188,140,255,0.6); box-shadow: 0 0 8px rgba(188,140,255,0.5); }
+    100% { background: rgba(188,140,255,0.2); box-shadow: none; }
+  }
+
+  /* Graph status in info bar */
+  .graph-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .graph-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: all 0.3s;
+  }
+  .graph-dot.active {
+    background: var(--purple);
+    box-shadow: 0 0 6px rgba(188,140,255,0.6);
+    animation: neuronPulse 1s ease-in-out;
+  }
+  @keyframes neuronPulse {
+    0% { box-shadow: 0 0 6px rgba(188,140,255,0.8); transform: scale(1.3); }
+    100% { box-shadow: 0 0 3px rgba(188,140,255,0.3); transform: scale(1); }
+  }
+
+  /* Graph stats panel */
+  .graph-stats { margin-top: 12px; }
+  .graph-stats h3 {
+    font-size: 12px;
+    color: var(--purple);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .graph-op-bar {
+    display: flex;
+    align-items: center;
+    padding: 2px 0;
+  }
+  .graph-op-bar .op-name { flex: 1; color: var(--text-dim); font-size: 11px; }
+  .graph-op-bar .op-count { font-weight: 500; font-size: 12px; min-width: 30px; text-align: right; }
+  .graph-op-bar .op-bar-fill {
+    height: 3px;
+    background: var(--purple);
+    border-radius: 2px;
+    margin: 0 6px;
+    transition: width 0.3s;
+    opacity: 0.6;
+  }
+
+  /* Connection indicator */
+  .conn-status {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .conn-connected { color: var(--green); }
+  .conn-disconnected { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>swarmhound</h1>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <span class="conn-status" id="connStatus">Connecting...</span>
+    <div class="status-badge status-running" id="statusBadge">
+      <span class="dot"></span>
+      <span id="statusText">Running</span>
+    </div>
+  </div>
+</div>
+
+<div class="info-bar">
+  <span><span class="label">Mode:</span> <span class="value" id="infoMode">-</span></span>
+  <span><span class="label">Phase:</span> <span class="value" id="infoPhase">-</span></span>
+  <span><span class="label">Program:</span> <span class="value" id="infoProgram">-</span></span>
+  <span><span class="label">Cost:</span> <span class="value" id="infoCost">$0.00</span></span>
+  <span><span class="label">Findings:</span> <span class="value" id="infoFindings">0</span></span>
+  <span class="graph-indicator" id="graphIndicator" style="display:none" title="Graph Memory">
+    <span class="graph-dot" id="graphDot"></span>
+    <span class="label">Graph:</span>
+    <span class="value" id="infoGraphOps">0</span>
+  </span>
+  <div class="controls">
+    <button onclick="sendControl('pause')" id="btnPause">Pause</button>
+    <button onclick="sendControl('resume')" id="btnResume" style="display:none">Resume</button>
+    <button onclick="sendControl('checkpoint')" id="btnCheckpoint" title="Save checkpoint for later resume">Save Checkpoint</button>
+    <button onclick="sendControl('stop')" class="btn-danger">Stop</button>
+    <span style="margin-left:8px;display:inline-flex;align-items:center;gap:4px;">
+      <span style="color:var(--text-dim);font-size:11px;">Budget:</span>
+      <span id="currentBudget" style="color:var(--green);font-size:11px;">$—</span>
+      <input type="number" id="budgetInput" step="0.5" min="0.1" placeholder="$"
+             style="width:60px;padding:2px 4px;font-size:11px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:3px;">
+      <button onclick="setBudget()" style="font-size:11px;padding:2px 8px;">Set</button>
+    </span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="stream-panel">
+    <div class="stream-header">Live Event Stream</div>
+    <div class="stream" id="stream"></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="tab-bar">
+      <button class="active" onclick="switchTab('agents')">Agents</button>
+      <button onclick="switchTab('findings')">Findings</button>
+      <button onclick="switchTab('history')">History</button>
+      <button onclick="switchTab('graph')">Graph</button>
+      <button onclick="switchTab('costs')">Costs</button>
+      <button onclick="switchTab('llm-wire')">Thinking</button>
+      <button onclick="switchTab('browsers')">Browsers</button>
+    </div>
+    <div class="tab-content">
+      <div class="tab-pane active" id="tab-agents">
+        <div id="agentList"></div>
+        <div id="sharedMemoryPanel" style="display:none;margin-top:12px;">
+          <h3 style="font-size:12px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Shared Memory</h3>
+          <div class="cost-row"><span class="cost-label">Entries</span><span class="cost-value" id="smEntries">0</span></div>
+          <div class="cost-row"><span class="cost-label">Claims</span><span class="cost-value" id="smClaims">0</span></div>
+          <div class="cost-row"><span class="cost-label">Findings</span><span class="cost-value" id="smFindings">0</span></div>
+          <div class="cost-row" id="smVerifRow" style="display:none"><span class="cost-label">Verified</span><span class="cost-value" id="smVerified" style="color:var(--green)">0</span></div>
+        </div>
+        <div id="recorderPanel" style="display:none;margin-top:12px;">
+          <h3 style="font-size:12px;color:var(--green);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Knowledge Graph</h3>
+          <div class="cost-row"><span class="cost-label">Stored</span><span class="cost-value" id="recStored" style="color:var(--green)">0</span></div>
+          <div class="cost-row"><span class="cost-label">Processed</span><span class="cost-value" id="recProcessed">0</span></div>
+          <div class="cost-row"><span class="cost-label">Queue</span><span class="cost-value" id="recPending">0</span></div>
+          <div class="cost-row" id="recExtractRow" style="display:none"><span class="cost-label">Extracting</span><span class="cost-value" id="recExtracting" style="color:var(--cyan)">...</span></div>
+          <div class="cost-row" id="recErrorRow" style="display:none"><span class="cost-label">Graph Errors</span><span class="cost-value" id="recErrors" style="color:var(--red)">0</span></div>
+        </div>
+        <div id="scoreboardPanel" style="display:none;margin-top:12px;">
+          <h3 style="font-size:12px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Scoreboard</h3>
+          <div id="scoreboardRows"></div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-findings">
+        <div class="memory-section">
+          <h3>Current Session</h3>
+          <div id="findingsList">No findings yet</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-history">
+        <div class="memory-section">
+          <h3>Learning</h3>
+          <div id="memBestTypes" style="margin-bottom:6px">-</div>
+          <pre id="memLearningSummary" style="font-size:11px;color:var(--text-dim);margin-bottom:10px">No data</pre>
+        </div>
+        <div class="memory-section">
+          <h3>Filters</h3>
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+            <input type="text" id="histTarget" placeholder="target domain" style="flex:1;min-width:120px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit">
+            <select id="histSeverity" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">all severities</option>
+              <option value="critical">critical</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+              <option value="info">info</option>
+            </select>
+            <select id="histVulnType" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit">
+              <option value="">all types</option>
+            </select>
+            <button onclick="fetchHistory()" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);cursor:pointer;font-size:12px;font-family:inherit">Search</button>
+          </div>
+        </div>
+        <div class="memory-section">
+          <h3>Past Scans</h3>
+          <div id="histScans" style="max-height:150px;overflow-y:auto">-</div>
+        </div>
+        <div class="memory-section">
+          <h3>Past Findings <span id="histFindingsCount" style="color:var(--text-dim);font-weight:400"></span></h3>
+          <div id="histFindings" style="max-height:400px;overflow-y:auto">-</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-graph">
+        <div class="graph-stats" id="graphStatsPanel" style="display:none">
+          <h3>Knowledge Graph</h3>
+          <div class="cost-row"><span class="cost-label">Status</span><span class="cost-value" id="graphStatus" style="color:var(--purple)">-</span></div>
+          <div class="cost-row"><span class="cost-label">Total Ops</span><span class="cost-value" id="graphTotalOps">0</span></div>
+          <div id="graphOpBreakdown"></div>
+        </div>
+        <div class="memory-section" style="margin-top:8px">
+          <h3>Domains <span id="graphDomainCount" style="color:var(--text-dim);font-weight:400"></span></h3>
+          <div id="graphDomainList" style="max-height:200px;overflow-y:auto">Loading...</div>
+        </div>
+        <div class="memory-section" id="graphDomainDetail" style="display:none">
+          <h3 id="graphDomainName" style="color:var(--accent)">-</h3>
+          <div id="graphDomainTechs" style="margin:6px 0"></div>
+          <h4 style="font-size:11px;color:var(--text-dim);text-transform:uppercase;margin:8px 0 4px">Findings</h4>
+          <div id="graphDomainFindings" style="max-height:200px;overflow-y:auto">-</div>
+          <h4 style="font-size:11px;color:var(--text-dim);text-transform:uppercase;margin:8px 0 4px">Endpoints</h4>
+          <div id="graphDomainEndpoints" style="max-height:120px;overflow-y:auto">-</div>
+        </div>
+        <div class="memory-section" id="graphTechPanel" style="display:none">
+          <h3 id="graphTechTitle" style="color:var(--cyan)">-</h3>
+          <div id="graphTechResults">-</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-costs">
+        <h3 style="font-size:12px;color:var(--text-dim);margin:0 0 6px;text-transform:uppercase;letter-spacing:0.5px">Current Session</h3>
+        <div class="cost-total">
+          <div class="cost-row"><span class="cost-label">Spent</span><span class="cost-value" id="costTotal">$0.00</span></div>
+          <div class="cost-row"><span class="cost-label">Budget</span><span class="cost-value" id="costBudget">$100.00</span></div>
+        </div>
+        <div id="costBreakdown"></div>
+        <h3 style="font-size:12px;color:var(--text-dim);margin:12px 0 6px;text-transform:uppercase;letter-spacing:0.5px">Per Target</h3>
+        <div id="costPerTarget"></div>
+        <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+          <h3 style="font-size:12px;color:var(--text-dim);margin:0 0 6px;text-transform:uppercase;letter-spacing:0.5px">All-Time</h3>
+          <div id="costAllTime">-</div>
+        </div>
+        <h3 style="font-size:12px;color:var(--text-dim);margin:12px 0 6px;text-transform:uppercase;letter-spacing:0.5px">Recent Scans</h3>
+        <div id="costHistory" style="max-height:250px;overflow-y:auto">-</div>
+      </div>
+      <div class="tab-pane" id="tab-llm-wire">
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+          <select id="wireAgent" onchange="fetchLLMWire()" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:11px;font-family:inherit">
+            <option value="">all agents</option>
+          </select>
+          <span id="wireCount" style="font-size:10px;color:var(--text-dim)"></span>
+        </div>
+        <div id="wireStream" style="max-height:calc(100vh - 200px);overflow-y:auto">
+          <div style="color:var(--text-dim);padding:8px 0">Waiting for LLM exchanges...</div>
+        </div>
+      </div>
+      <div class="tab-pane" id="tab-browsers">
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+          <select id="browserAgent" onchange="watchBrowserAgent(this.value)" style="flex:1;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit">
+            <option value="">-- select agent --</option>
+          </select>
+          <span id="browserFps" style="font-size:10px;color:var(--text-dim)"></span>
+        </div>
+        <div id="browserUrlBar" style="padding:4px 6px;margin-bottom:6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);font-size:11px;color:var(--accent);word-break:break-all;min-height:20px;display:none"></div>
+        <div id="browserTitleBar" style="font-size:11px;color:var(--text-dim);margin-bottom:6px;display:none"></div>
+        <div id="browserViewport" style="background:#000;border:1px solid var(--border);border-radius:4px;overflow:hidden;display:flex;align-items:center;justify-content:center;min-height:200px">
+          <span id="browserPlaceholder" style="color:var(--text-dim);padding:20px">Select an agent to watch its browser</span>
+          <img id="browserImage" style="width:100%;display:none" alt="browser screenshot">
+        </div>
+        <div id="browserMeta" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text-dim);display:none">
+          <span id="browserFrameSize"></span>
+          <span id="browserFrameCount"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="god-mode">
+  <span class="gm-label">GOD MODE</span>
+  <select id="gmRecipient">
+    <option value="director">director</option>
+    <option value="all">all agents</option>
+  </select>
+  <input type="text" id="gmInput" placeholder="Chat with director or send directive to agents..." onkeydown="if(event.key==='Enter')sendDirective()">
+  <button onclick="sendDirective()">Send</button>
+</div>
+<div class="quick-actions">
+  <button onclick="quickAction('Skip current target')">Skip target</button>
+  <button onclick="quickAction('Abort pipeline immediately')">Abort pipeline</button>
+  <button onclick="quickAction('Focus on high-severity findings only')">Focus high-sev</button>
+  <button onclick="quickAction('Increase scan depth on current target')">Deep scan</button>
+</div>
+
+<script>
+let ws = null;
+let autoScroll = true;
+const stream = document.getElementById('stream');
+
+// Auto-scroll control: pause when user scrolls up
+stream.addEventListener('scroll', () => {
+  const atBottom = stream.scrollHeight - stream.scrollTop - stream.clientHeight < 40;
+  autoScroll = atBottom;
+});
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(proto + '//' + location.host + '/ws');
+
+  ws.onopen = () => {
+    document.getElementById('connStatus').textContent = 'Connected';
+    document.getElementById('connStatus').className = 'conn-status conn-connected';
+    // Fetch initial data
+    fetchSidebar();
+    // Re-subscribe to browser stream if watching
+    if (_browserWatchAgent) {
+      ws.send(JSON.stringify({ type: 'browser_watch', agent: _browserWatchAgent }));
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('connStatus').textContent = 'Disconnected';
+    document.getElementById('connStatus').className = 'conn-status conn-disconnected';
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    handleMessage(data);
+  };
+}
+
+function handleMessage(data) {
+  switch (data.type) {
+    case 'agent_message': renderAgentMessage(data); break;
+    case 'tool_call': renderToolCall(data); break;
+    case 'llm_start': updateAgentStatus(data.agent, 'thinking...'); break;
+    case 'tool_start': updateAgentStatus(data.agent, 'running ' + data.tool); break;
+    case 'llm_call': renderLLMCall(data); break;
+    case 'phase': renderPhase(data); break;
+    case 'checkpoint': renderCheckpoint(data); break;
+    case 'help_needed': renderHelpRequest(data); break;
+    case 'agent_done': renderAgentDone(data); break;
+    case 'graph_op': renderGraphOp(data); break;
+    case 'browser_frame': handleBrowserFrame(data); break;
+    case 'status': updateStatus(data); break;
+    case 'status_update':
+      if (data.pipeline_state) updatePipelineState(data.pipeline_state);
+      if (data.checkpoint_saved !== undefined) showCheckpointFeedback(data.checkpoint_saved, data.message);
+      break;
+  }
+}
+
+function renderAgentMessage(data) {
+  const cls = 'event-' + (data.msg_type || 'default');
+  const time = new Date(data.timestamp).toLocaleTimeString();
+  const el = document.createElement('div');
+  el.className = 'event ' + cls;
+  const full = data.content || '';
+  const short = truncate(full, 200);
+  const needsExpand = full.length > 200;
+  const contentSpan = document.createElement('span');
+  contentSpan.className = 'content';
+  contentSpan.textContent = short;
+  contentSpan.title = full.slice(0, 1000);
+  if (needsExpand) {
+    contentSpan.dataset.full = full;
+    contentSpan.dataset.short = short;
+    contentSpan.dataset.expanded = 'false';
+    contentSpan.addEventListener('click', function() {
+      const isExpanded = this.dataset.expanded === 'true';
+      this.textContent = isExpanded ? this.dataset.short : this.dataset.full;
+      this.classList.toggle('expanded', !isExpanded);
+      this.dataset.expanded = isExpanded ? 'false' : 'true';
+    });
+  }
+  var recipientTag = '';
+  if (data.msg_type === 'directive' && data.recipient && data.recipient !== 'all') {
+    recipientTag = '<span class="tag">[to ' + esc(data.recipient) + ']</span>';
+  } else if (data.msg_type === 'response' && data.recipient === 'human') {
+    recipientTag = '<span class="tag" style="color:var(--purple)">[to you]</span>';
+  }
+  el.innerHTML =
+    '<span class="time">' + time + '</span>' +
+    '<span class="tag">' + esc(data.msg_type) + '</span>' +
+    '<span class="sender">' + esc(data.sender) + '</span> ' +
+    recipientTag;
+  el.appendChild(contentSpan);
+  if (needsExpand) {
+    const hint = document.createElement('span');
+    hint.className = 'expand-hint';
+    hint.textContent = ' [click to expand]';
+    el.appendChild(hint);
+  }
+  appendToStream(el);
+
+  // Update agent status
+  updateAgentStatus(data.sender, data.msg_type);
+}
+
+function renderToolCall(data) {
+  const el = document.createElement('div');
+  el.className = 'event event-tool';
+  const dur = data.duration_ms ? (data.duration_ms / 1000).toFixed(1) + 's' : '';
+  const err = data.error ? ' [ERR: ' + data.error + ']' : '';
+  const fullOutput = data.output_preview || '';
+  const shortOutput = truncate(fullOutput, 120);
+  const inputStr = data.input ? JSON.stringify(data.input) : '';
+  const shortInput = truncate(inputStr, 80);
+
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag">tool</span>' +
+    '<span class="sender">' + esc(data.agent) + '</span> ';
+
+  const contentSpan = document.createElement('span');
+  contentSpan.className = 'content';
+  const summaryText = data.tool + (shortInput ? '(' + shortInput + ')' : '') + ' ' + dur + err;
+  const detailText = data.tool + '(' + inputStr + ') ' + dur + err + (fullOutput ? '\n    → ' + fullOutput : '');
+  contentSpan.textContent = summaryText + (shortOutput ? ' → ' + shortOutput : '');
+  contentSpan.title = detailText.slice(0, 1500);
+  if (fullOutput.length > 120 || inputStr.length > 80) {
+    contentSpan.dataset.full = detailText;
+    contentSpan.dataset.short = summaryText + (shortOutput ? ' → ' + shortOutput : '');
+    contentSpan.dataset.expanded = 'false';
+    contentSpan.addEventListener('click', function() {
+      const isExpanded = this.dataset.expanded === 'true';
+      this.textContent = isExpanded ? this.dataset.short : this.dataset.full;
+      this.classList.toggle('expanded', !isExpanded);
+      this.dataset.expanded = isExpanded ? 'false' : 'true';
+    });
+  }
+  el.appendChild(contentSpan);
+  appendToStream(el);
+  updateAgentStatus(data.agent, data.tool);
+}
+
+function renderLLMCall(data) {
+  const el = document.createElement('div');
+  el.className = 'event event-llm_call';
+  const dur = data.duration_ms ? (data.duration_ms / 1000).toFixed(1) + 's' : '';
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag">llm</span>' +
+    '<span class="sender">' + esc(data.agent) + '</span> ' +
+    '<span class="content">' + esc(data.model || 'unknown') + ' (' + dur + ') ' +
+    data.messages + ' msgs, ' + data.tools + ' tools</span>';
+  appendToStream(el);
+  updateAgentStatus(data.agent, 'thinking (' + dur + ')');
+
+  // If there's reasoning text, show it as a separate event
+  const reasoning = data.response_preview || '';
+  if (reasoning.trim()) {
+    const re = document.createElement('div');
+    re.className = 'event event-reasoning';
+    const full = reasoning;
+    const short = truncate(full, 200);
+    const needsExpand = full.length > 200;
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'content';
+    contentSpan.textContent = short;
+    contentSpan.title = full.slice(0, 1500);
+    if (needsExpand) {
+      contentSpan.dataset.full = full;
+      contentSpan.dataset.short = short;
+      contentSpan.dataset.expanded = 'false';
+      contentSpan.addEventListener('click', function() {
+        const isExpanded = this.dataset.expanded === 'true';
+        this.textContent = isExpanded ? this.dataset.short : this.dataset.full;
+        this.classList.toggle('expanded', !isExpanded);
+        this.dataset.expanded = isExpanded ? 'false' : 'true';
+      });
+    }
+    re.innerHTML =
+      '<span class="time">&nbsp;</span>' +
+      '<span class="tag">why</span>' +
+      '<span class="sender">' + esc(data.agent) + '</span> ';
+    re.appendChild(contentSpan);
+    if (needsExpand) {
+      const hint = document.createElement('span');
+      hint.className = 'expand-hint';
+      hint.textContent = ' [click to expand]';
+      re.appendChild(hint);
+    }
+    appendToStream(re);
+  }
+}
+
+function renderAgentDone(data) {
+  const el = document.createElement('div');
+  el.className = 'event event-agent_done';
+  const dur = data.duration_ms ? (data.duration_ms / 1000).toFixed(1) + 's' : '';
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag">done</span>' +
+    '<span class="sender">' + esc(data.agent) + '</span> ' +
+    '<span class="content">' + esc(data.exit_reason) +
+    ' | ' + data.iterations + ' iterations, ' + data.tool_calls + ' tool calls, ' + dur + '</span>';
+  appendToStream(el);
+  updateAgentStatus(data.agent, 'done: ' + (data.exit_reason || '').slice(0, 30), true);
+}
+
+function renderPhase(data) {
+  const el = document.createElement('div');
+  el.className = 'event event-phase';
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag">phase</span>' +
+    '<span class="content" style="font-weight:600">' +
+    esc(data.phase) + (data.program ? ' — ' + esc(data.program) : '') +
+    '</span>';
+  appendToStream(el);
+  document.getElementById('infoPhase').textContent = data.phase;
+  if (data.program) document.getElementById('infoProgram').textContent = data.program;
+}
+
+function renderGraphOp(data) {
+  const el = document.createElement('div');
+  el.className = 'event event-graph';
+  const op = data.op || 'unknown';
+  const details = data.details || {};
+
+  // Classify op
+  const isVuln = op === 'store_vulnerability';
+  const isWrite = op.startsWith('store_') || op === 'record_outcome';
+  const opLabel = isVuln ? 'vuln' : isWrite ? 'write' : 'read';
+  const color = isVuln ? 'var(--red)' : isWrite ? 'var(--green)' : 'var(--purple)';
+
+  // Format details — vulnerability gets special treatment
+  let detailHtml;
+  if (isVuln) {
+    const sev = (details.severity || 'info').toUpperCase();
+    const sevColor = {CRITICAL:'#f44',HIGH:'#f84',MEDIUM:'#fa4',LOW:'#4af',INFO:'var(--text-dim)'}[sev] || 'var(--text-dim)';
+    detailHtml = '<span style="color:' + sevColor + ';font-weight:600">[' + esc(sev) + ']</span> ' +
+      esc(details.target || '') + ' \u2014 ' + esc(details.title || details.vuln_type || '') +
+      (details.found_at ? ' <span style="color:var(--text-dim);font-size:10px">(' + esc(details.found_at) + ')</span>' : '');
+  } else {
+    const detailStr = Object.entries(details).map(([k,v]) => k + '=' + v).join(', ');
+    detailHtml = esc(op) + (detailStr ? ' \u2014 ' + esc(detailStr) : '');
+  }
+
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag"><span class="neuron-icon">\u26A1</span>' + esc(opLabel) + '</span>' +
+    '<span class="content" style="color:' + color + '">' + detailHtml + '</span>';
+  appendToStream(el);
+
+  // Pulse the graph dot
+  const dot = document.getElementById('graphDot');
+  if (dot) {
+    dot.classList.remove('active');
+    void dot.offsetWidth;  // reflow to restart animation
+    dot.classList.add('active');
+  }
+}
+
+function renderCheckpoint(data) {
+  const el = document.createElement('div');
+  el.className = 'checkpoint';
+  el.id = 'chk-' + data.id;
+  el.innerHTML =
+    '<div class="chk-title">CHECKPOINT: ' + esc(data.phase) + '</div>' +
+    '<pre>' + esc(data.summary) + '</pre>' +
+    '<div class="chk-cost">Cost so far: $' + (data.cost_so_far || 0).toFixed(2) + '</div>' +
+    '<div class="chk-actions">' +
+      '<button class="chk-continue" onclick="respondCheckpoint(\'' + data.id + '\',\'continue\')">Continue</button>' +
+      '<button class="chk-skip" onclick="respondCheckpoint(\'' + data.id + '\',\'skip\')">Skip</button>' +
+      '<button class="chk-abort" onclick="respondCheckpoint(\'' + data.id + '\',\'abort\')">Abort</button>' +
+    '</div>';
+  appendToStream(el);
+}
+
+function respondCheckpoint(id, action) {
+  ws.send(JSON.stringify({ type: 'checkpoint_response', id: id, action: action }));
+  const el = document.getElementById('chk-' + id);
+  if (el) {
+    el.querySelector('.chk-actions').innerHTML =
+      '<span style="color:var(--text-dim)">Responded: ' + action + '</span>';
+  }
+}
+
+function renderHelpRequest(data) {
+  const el = document.createElement('div');
+  el.className = 'help-request';
+  el.id = 'help-' + data.id;
+  const ctxStr = data.context && Object.keys(data.context).length > 0
+    ? '<div class="help-context">Context: ' + esc(JSON.stringify(data.context).slice(0, 500)) + '</div>'
+    : '';
+  el.innerHTML =
+    '<div class="help-title">AGENT NEEDS HELP</div>' +
+    '<pre>' + esc(data.description) + '</pre>' +
+    ctxStr +
+    '<textarea id="help-input-' + data.id + '" placeholder="Your response..."></textarea>' +
+    '<div class="help-actions">' +
+      '<button class="help-send" onclick="respondHelp(\'' + data.id + '\')">Send Response</button>' +
+      '<button class="help-skip" onclick="respondHelp(\'' + data.id + '\', true)">Skip / Ignore</button>' +
+    '</div>';
+  appendToStream(el);
+
+  // Play audio notification if available
+  try { new Audio('data:audio/wav;base64,UklGRl9vT19teleVBSQUlmZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQ==').play().catch(()=>{}); } catch(e) {}
+}
+
+function respondHelp(id, skip) {
+  const textarea = document.getElementById('help-input-' + id);
+  const response = skip ? '' : (textarea ? textarea.value.trim() : '');
+  ws.send(JSON.stringify({ type: 'help_response', id: id, response: response }));
+  const el = document.getElementById('help-' + id);
+  if (el) {
+    el.querySelector('.help-actions').innerHTML =
+      '<span style="color:var(--text-dim)">Responded: ' + (skip ? 'skipped' : esc(truncate(response, 60))) + '</span>';
+    const ta = el.querySelector('textarea');
+    if (ta) ta.disabled = true;
+  }
+}
+
+let currentMode = null;
+const LAB_AGENTS = ['director', 'discover', 'recon', 'scanner', 'analyzer', 'reporter'];
+
+function updateStatus(data) {
+  document.getElementById('infoCost').textContent = '$' + (data.cost?.total || 0).toFixed(2);
+  if (data.cost?.budget) {
+    document.getElementById('currentBudget').textContent = '$' + data.cost.budget.toFixed(2);
+  }
+  document.getElementById('infoFindings').textContent =
+    (data.findings?.raw || 0) + ' raw / ' + (data.findings?.analyzed || 0) + ' analyzed';
+  if (data.current_phase) document.getElementById('infoPhase').textContent = data.current_phase;
+  if (data.current_program) document.getElementById('infoProgram').textContent = data.current_program;
+  updatePipelineState(data.pipeline_state);
+  updateAgents(data);
+  updateGraphStatus(data.graph);
+  updateBrowserAgentList(data.browsers);
+}
+
+function updateAgents(data) {
+  const mode = data.mode || 'lab';
+  const agentData = mode === 'swarm' ? (data.swarm?.agents || []) : [];
+  const agents = mode === 'swarm' ? agentData.map(a => a.id) : LAB_AGENTS;
+
+  // Update mode badge
+  const modeEl = document.getElementById('infoMode');
+  if (mode === 'swarm') {
+    modeEl.textContent = 'SWARM (' + agents.length + ')';
+    modeEl.style.color = 'var(--cyan)';
+  } else {
+    modeEl.textContent = 'LAB';
+    modeEl.style.color = '';
+  }
+
+  // Build terminated + role lookup
+  const terminatedSet = new Set();
+  const roleMap = {};
+  if (mode === 'swarm' && agentData.length) {
+    for (const a of agentData) {
+      if (a.terminated) terminatedSet.add(a.id);
+      if (a.role) roleMap[a.id] = a.role;
+    }
+  }
+
+  // Rebuild agent rows only when the mode or agent list changes
+  const agentKey = mode + ':' + agents.join(',');
+  if (agentKey !== currentMode) {
+    currentMode = agentKey;
+    const container = document.getElementById('agentList');
+    container.innerHTML = '';
+    for (const name of agents) {
+      const isTerminated = terminatedSet.has(name);
+      const isReplacement = /r\d+$/.test(name);
+      const isValidator = roleMap[name] === 'validator';
+      const row = document.createElement('div');
+      row.className = 'agent-row';
+      if (isTerminated) row.style.opacity = '0.4';
+      let label = esc(name);
+      if (isValidator) {
+        label = '<span style="color:var(--yellow)">' + esc(name) + '</span> <span style="color:var(--yellow);font-size:10px">VALIDATOR</span>';
+      } else if (isReplacement) {
+        const base = name.replace(/r\d+$/, '');
+        const rev = name.match(/r(\d+)$/)[1];
+        label = esc(name) + ' <span style="color:var(--cyan);font-size:10px">(replaced ' + esc(base) + ')</span>';
+      }
+      if (isTerminated) {
+        label += ' <span style="color:var(--red);font-size:10px">TERMINATED</span>';
+      }
+      row.innerHTML = '<span class="agent-name">' + label + '</span>' +
+        '<span class="agent-stats" id="agent-stats-' + esc(name) + '"></span>' +
+        '<span class="agent-status" id="agent-' + esc(name) + '">' + (isTerminated ? 'dead' : 'idle') + '</span>';
+      container.appendChild(row);
+    }
+    // Rebuild god-mode dropdown (director first, then agents, skip terminated)
+    const select = document.getElementById('gmRecipient');
+    const prevVal = select.value;
+    select.innerHTML = '';
+    const dirOpt = document.createElement('option');
+    dirOpt.value = 'director';
+    dirOpt.textContent = 'director';
+    select.appendChild(dirOpt);
+    for (const name of agents) {
+      if (terminatedSet.has(name)) continue;
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    }
+    const allOpt = document.createElement('option');
+    allOpt.value = 'all';
+    allOpt.textContent = 'all agents';
+    select.appendChild(allOpt);
+    // Restore previous selection if still valid
+    if ([...select.options].some(o => o.value === prevVal)) select.value = prevVal;
+  }
+
+  // Update per-agent stats (swarm only, every 2s status tick)
+  const scoreMap = {};
+  if (data.swarm?.shared_memory?.scoreboard) {
+    for (const s of data.swarm.shared_memory.scoreboard) scoreMap[s.agent] = s.score;
+  }
+  if (mode === 'swarm' && agentData.length) {
+    for (const a of agentData) {
+      const statsEl = document.getElementById('agent-stats-' + a.id);
+      if (statsEl) {
+        const parts = [];
+        parts.push('iter ' + a.iterations + '/' + a.max_iterations);
+        parts.push('calls ' + a.tool_calls + '/' + a.max_tool_calls);
+        if (a.id in scoreMap) {
+          const sc = scoreMap[a.id];
+          parts.push('score ' + (sc > 0 ? '+' : '') + sc);
+        }
+        if (a.exit_reason) parts.push(a.exit_reason);
+        statsEl.textContent = parts.join(' | ');
+        statsEl.style.color = a.terminated ? 'var(--red)' : a.exit_reason ? 'var(--orange)' : 'var(--text-dim)';
+      }
+    }
+  }
+
+  // Shared memory panel (swarm only)
+  const smPanel = document.getElementById('sharedMemoryPanel');
+  const sbPanel = document.getElementById('scoreboardPanel');
+  if (mode === 'swarm' && data.swarm?.shared_memory) {
+    smPanel.style.display = '';
+    const sm = data.swarm.shared_memory;
+    document.getElementById('smEntries').textContent = sm.entries || 0;
+    document.getElementById('smClaims').textContent = sm.claims || 0;
+    document.getElementById('smFindings').textContent = sm.findings || 0;
+    const verif = sm.verification || {};
+    const vTotal = (verif.verified || 0);
+    const vRow = document.getElementById('smVerifRow');
+    if (sm.findings > 0) {
+      vRow.style.display = '';
+      document.getElementById('smVerified').textContent =
+        vTotal + '/' + sm.findings + (verif.inconclusive ? ' (' + verif.inconclusive + ' inconclusive)' : '');
+    } else {
+      vRow.style.display = 'none';
+    }
+
+    // Scoreboard
+    const board = sm.scoreboard || [];
+    if (board.length) {
+      sbPanel.style.display = '';
+      const container = document.getElementById('scoreboardRows');
+      container.innerHTML = '';
+      for (let i = 0; i < board.length; i++) {
+        const s = board[i];
+        const medal = i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : '#' + (i+1);
+        const scoreColor = s.score > 0 ? 'var(--green)' : s.score < 0 ? 'var(--red)' : 'var(--text-dim)';
+        const row = document.createElement('div');
+        row.className = 'cost-row';
+        row.innerHTML = '<span class="cost-label">' +
+          '<span style="color:var(--text-dim);width:28px;display:inline-block">' + medal + '</span> ' +
+          esc(s.agent) + '</span>' +
+          '<span class="cost-value" style="color:' + scoreColor + '">' + (s.score > 0 ? '+' : '') + s.score + '</span>';
+        container.appendChild(row);
+      }
+    } else {
+      sbPanel.style.display = 'none';
+    }
+    // Recorder panel
+    const recPanel = document.getElementById('recorderPanel');
+    const rec = data.swarm?.recorder;
+    if (rec) {
+      recPanel.style.display = '';
+      const processed = (rec.processed || 0);
+      const stored = (rec.stored_count || 0);
+      const pending = (rec.pending_batch || 0);
+      const graphErr = (rec.graph_errors || 0);
+      const extracting = rec.extracting || false;
+      const batchSize = rec.batch_size || 15;
+      document.getElementById('recStored').textContent = stored;
+      document.getElementById('recProcessed').textContent = stored > 0 && processed > stored
+        ? processed + ' (' + stored + ' useful)'
+        : processed;
+      document.getElementById('recPending').textContent = pending;
+      // Show extracting indicator
+      const extRow = document.getElementById('recExtractRow');
+      if (extracting) {
+        extRow.style.display = '';
+        document.getElementById('recExtracting').textContent = 'batch of ' + batchSize + '...';
+      } else {
+        extRow.style.display = 'none';
+      }
+      const errRow = document.getElementById('recErrorRow');
+      if (graphErr > 0) {
+        errRow.style.display = '';
+        document.getElementById('recErrors').textContent = graphErr;
+      } else {
+        errRow.style.display = 'none';
+      }
+    } else {
+      recPanel.style.display = 'none';
+    }
+  } else {
+    smPanel.style.display = 'none';
+    sbPanel.style.display = 'none';
+    document.getElementById('recorderPanel').style.display = 'none';
+  }
+}
+
+function updatePipelineState(state) {
+  const badge = document.getElementById('statusBadge');
+  const text = document.getElementById('statusText');
+  badge.className = 'status-badge status-' + state;
+  text.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+
+  document.getElementById('btnPause').style.display = state === 'running' ? '' : 'none';
+  document.getElementById('btnResume').style.display = state === 'paused' ? '' : 'none';
+}
+
+function updateAgentStatus(name, activity, sticky) {
+  const el = document.getElementById('agent-' + name);
+  if (el) {
+    el.textContent = activity;
+    el.className = 'agent-status active';
+    clearTimeout(el._timer);
+    if (!sticky) {
+      el._timer = setTimeout(() => {
+        el.textContent = 'idle';
+        el.className = 'agent-status';
+      }, 300000);
+    }
+  }
+}
+
+const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+function sevColor(sev) {
+  return sev === 'CRITICAL' ? 'var(--red)' : sev === 'HIGH' ? 'var(--orange)'
+    : sev === 'MEDIUM' ? 'var(--yellow)' : 'var(--text-dim)';
+}
+function vsMeta(vs) {
+  if (vs === 'verified') return { color: 'var(--green)', label: 'VERIFIED' };
+  if (vs === 'inconclusive') return { color: 'var(--yellow)', label: 'INCONCLUSIVE' };
+  if (vs === 'disproved') return { color: 'var(--red)', label: 'DISPROVED' };
+  return { color: 'var(--text-dim)', label: 'UNVERIFIED' };
+}
+
+function renderFindingCard(f, idx) {
+  const sev = (f.effective_severity || f.severity || 'info').toUpperCase();
+  const vs = f.verification_status || 'unverified';
+  const vm = vsMeta(vs);
+  const bounty = f.ai_bounty_estimate || f.estimated_bounty || 0;
+  const cid = 'fc-' + idx;
+  const detail = (label, val) => val
+    ? '<div class="fc-field"><span class="fc-flabel">' + label + '</span><div class="fc-fval">' + esc(String(val)) + '</div></div>'
+    : '';
+  const pre = (label, val) => val
+    ? '<div class="fc-field"><span class="fc-flabel">' + label + '</span><pre class="fc-pre">' + esc(String(val)) + '</pre></div>'
+    : '';
+  return '<div class="fc">' +
+    '<div class="fc-head" onclick="toggleFinding(\'' + cid + '\')">' +
+      '<span class="fc-sev" style="color:' + sevColor(sev) + '">' + esc(sev) + '</span>' +
+      '<span class="fc-vs" style="color:' + vm.color + ';border-color:' + vm.color + '">' + vm.label + '</span>' +
+      '<span class="fc-title">' + esc(f.title || 'Untitled') + '</span>' +
+      (bounty ? '<span class="fc-bounty">~$' + bounty.toFixed(0) + '</span>' : '') +
+      '<span class="fc-caret" id="' + cid + '-caret">▸</span>' +
+    '</div>' +
+    '<div class="fc-target">' + esc(f.target || '') + (f.url ? ' · ' + esc(f.url) : '') + '</div>' +
+    '<div class="fc-body" id="' + cid + '" style="display:none">' +
+      detail('Impact', f.impact || f.ai_exploitability) +
+      detail('Description', f.description) +
+      pre('Proof of Concept', f.poc) +
+      pre('Evidence', f.evidence) +
+      detail('Verification', f.verification_details) +
+    '</div>' +
+  '</div>';
+}
+
+function renderFindingsList(items) {
+  // Group by verification status; verified first, disproved last.
+  const groups = { verified: [], unverified: [], inconclusive: [], disproved: [] };
+  for (const f of items) (groups[f.verification_status] || groups.unverified).push(f);
+  const order = [
+    ['verified', 'Verified', 'var(--green)'],
+    ['unverified', 'Needs Review', 'var(--text-dim)'],
+    ['inconclusive', 'Inconclusive', 'var(--yellow)'],
+    ['disproved', 'Disproved', 'var(--red)'],
+  ];
+  let html = '', idx = 0;
+  for (const [key, label, color] of order) {
+    const g = groups[key];
+    if (!g.length) continue;
+    g.sort((a, b) => (SEV_RANK[a.effective_severity || a.severity] ?? 9) - (SEV_RANK[b.effective_severity || b.severity] ?? 9));
+    html += '<div class="fc-group" style="border-color:' + color + '">' + esc(label) + ' (' + g.length + ')</div>';
+    for (const f of g) html += renderFindingCard(f, idx++);
+  }
+  return html;
+}
+
+function toggleFinding(cid) {
+  const body = document.getElementById(cid);
+  const caret = document.getElementById(cid + '-caret');
+  if (!body) return;
+  const open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  if (caret) caret.textContent = open ? '▾' : '▸';
+}
+
+function updateGraphStatus(graph) {
+  if (!graph) return;
+  const indicator = document.getElementById('graphIndicator');
+  const panel = document.getElementById('graphStatsPanel');
+
+  if (graph.connected) {
+    indicator.style.display = '';
+    panel.style.display = '';
+    document.getElementById('infoGraphOps').textContent = graph.total_ops || 0;
+    document.getElementById('graphStatus').textContent = 'Connected';
+    document.getElementById('graphTotalOps').textContent = graph.total_ops || 0;
+
+    // Op breakdown
+    const counts = graph.op_counts || {};
+    const maxCount = Math.max(1, ...Object.values(counts));
+    let html = '';
+    const opLabels = {
+      store_program: 'Store Program', store_technology: 'Store Tech',
+      store_finding: 'Store Finding', store_scan: 'Store Scan',
+      store_endpoint: 'Store Endpoint', record_outcome: 'Record Outcome',
+      query_similar_targets: 'Query Similar', query_effective_techniques: 'Query Techniques',
+      query_domain_context: 'Query Context', query_vulnerable_endpoints: 'Query Endpoints',
+      query_raw: 'Raw Cypher',
+    };
+    for (const [op, count] of Object.entries(counts)) {
+      const pct = Math.round((count / maxCount) * 100);
+      const label = opLabels[op] || op;
+      html += '<div class="graph-op-bar">' +
+        '<span class="op-name">' + esc(label) + '</span>' +
+        '<div style="flex:2;height:3px;background:var(--border);border-radius:2px">' +
+        '<div class="op-bar-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="op-count">' + count + '</span></div>';
+    }
+    document.getElementById('graphOpBreakdown').innerHTML = html;
+  } else {
+    indicator.style.display = 'none';
+    panel.style.display = 'none';
+  }
+}
+
+function appendToStream(el) {
+  stream.appendChild(el);
+  if (autoScroll) stream.scrollTop = stream.scrollHeight;
+}
+
+// Controls
+function sendControl(action) {
+  ws.send(JSON.stringify({ type: 'control', action: action }));
+}
+
+function setBudget() {
+  const input = document.getElementById('budgetInput');
+  const val = parseFloat(input.value);
+  if (isNaN(val) || val <= 0) { alert('Enter a positive budget amount'); return; }
+  ws.send(JSON.stringify({ type: 'control', action: 'set_budget', value: val }));
+  input.value = '';
+}
+
+function showCheckpointFeedback(saved, message) {
+  const btn = document.getElementById('btnCheckpoint');
+  if (!btn) return;
+  const origText = btn.textContent;
+  btn.textContent = saved ? 'Saved!' : (message || 'Failed');
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+}
+
+function sendDirective() {
+  const input = document.getElementById('gmInput');
+  const recipient = document.getElementById('gmRecipient').value;
+  const content = input.value.trim();
+  if (!content) return;
+  ws.send(JSON.stringify({ type: 'inject', recipient: recipient, content: content, priority: 'critical' }));
+  input.value = '';
+
+  // Show in stream
+  const el = document.createElement('div');
+  el.className = 'event event-directive';
+  el.innerHTML =
+    '<span class="time">' + new Date().toLocaleTimeString() + '</span>' +
+    '<span class="tag">directive</span>' +
+    '<span class="sender">human</span> ' +
+    '<span class="content">[to ' + esc(recipient) + '] ' + esc(content) + '</span>';
+  appendToStream(el);
+}
+
+function quickAction(text) {
+  document.getElementById('gmInput').value = text;
+  sendDirective();
+}
+
+// Tabs
+function switchTab(name) {
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'costs' || name === 'findings') fetchSidebar();
+  if (name === 'history') fetchHistory();
+  if (name === 'graph') fetchGraphOverview();
+  if (name === 'llm-wire') fetchLLMWire();
+}
+
+// Sidebar data fetching
+async function fetchSidebar() {
+  try {
+    const [costs, findings] = await Promise.all([
+      fetch('/api/costs').then(r => r.json()),
+      fetch('/api/findings').then(r => r.json()),
+    ]);
+
+    // Costs
+    document.getElementById('costTotal').textContent = '$' + (costs.total || 0).toFixed(2);
+    document.getElementById('costBudget').textContent = '$' + (costs.budget || 100).toFixed(2);
+    document.getElementById('infoCost').textContent = '$' + (costs.total || 0).toFixed(2);
+    let bhtml = '';
+    for (const [cat, amt] of Object.entries(costs.breakdown || {})) {
+      bhtml += '<div class="cost-row"><span class="cost-label">' + esc(cat) + '</span><span class="cost-value">$' + amt.toFixed(4) + '</span></div>';
+    }
+    document.getElementById('costBreakdown').innerHTML = bhtml || '<div style="color:var(--text-dim)">No costs yet</div>';
+
+    let thtml = '';
+    for (const [tgt, amt] of Object.entries(costs.per_target || {})) {
+      thtml += '<div class="cost-row"><span class="cost-label">' + esc(tgt) + '</span><span class="cost-value">$' + amt.toFixed(4) + '</span></div>';
+    }
+    document.getElementById('costPerTarget').innerHTML = thtml || '<div style="color:var(--text-dim)">-</div>';
+
+    // All-time stats
+    const hist = costs.history || {};
+    const stats = hist.stats || {};
+    if (stats.total_scans) {
+      document.getElementById('costAllTime').innerHTML =
+        '<div class="cost-row"><span class="cost-label">Total Spent</span><span class="cost-value" style="color:var(--yellow)">$' + (stats.total_cost || 0).toFixed(2) + '</span></div>' +
+        '<div class="cost-row"><span class="cost-label">Scans</span><span class="cost-value">' + stats.total_scans + '</span></div>' +
+        '<div class="cost-row"><span class="cost-label">Avg/Scan</span><span class="cost-value">$' + (stats.avg_cost || 0).toFixed(2) + '</span></div>' +
+        '<div class="cost-row"><span class="cost-label">Max Scan</span><span class="cost-value">$' + (stats.max_cost || 0).toFixed(2) + '</span></div>' +
+        '<div class="cost-row"><span class="cost-label">Total Findings</span><span class="cost-value">' + (stats.total_findings || 0) + '</span></div>';
+    }
+
+    // Recent scan costs
+    const scans = hist.recent_scans || [];
+    if (scans.length) {
+      let shtml = '';
+      for (const s of scans) {
+        const date = s.started_at ? s.started_at.split('T')[0] : '?';
+        const target = s.target || '?';
+        const truncTarget = target.length > 22 ? target.substring(0, 22) + '...' : target;
+        shtml += '<div class="cost-row">' +
+          '<span class="cost-label" title="' + esc(target) + '">#' + s.id + ' ' + esc(truncTarget) + '</span>' +
+          '<span class="cost-value">$' + (s.cost || 0).toFixed(2) + ' <span style="color:var(--text-dim);font-size:11px">' + s.findings_count + 'f</span></span>' +
+          '</div>';
+      }
+      document.getElementById('costHistory').innerHTML = shtml;
+    }
+
+    // Current session findings
+    const analyzed = findings.analyzed || [];
+    if (analyzed.length === 0) {
+      document.getElementById('findingsList').innerHTML = '<div style="color:var(--text-dim)">No findings yet</div>';
+    } else {
+      document.getElementById('findingsList').innerHTML = renderFindingsList(analyzed);
+    }
+    document.getElementById('infoFindings').textContent = analyzed.length + ' findings';
+  } catch (e) {
+    console.error('Sidebar fetch error:', e);
+  }
+}
+
+// Utils
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + '...' : (s || ''); }
+
+// ---------------------------------------------------------------------------
+// History tab
+// ---------------------------------------------------------------------------
+
+let historyLoaded = false;
+
+async function fetchHistory() {
+  const target = document.getElementById('histTarget').value.trim();
+  const severity = document.getElementById('histSeverity').value;
+  const vulnType = document.getElementById('histVulnType').value;
+
+  const params = new URLSearchParams();
+  if (target) params.set('target', target);
+  if (vulnType) params.set('vuln_type', vulnType);
+  params.set('limit', '100');
+
+  try {
+    const [findingsRes, scansRes, memoryRes] = await Promise.all([
+      fetch('/api/history/findings?' + params).then(r => r.json()),
+      fetch('/api/history/scans?' + (target ? 'target=' + encodeURIComponent(target) : '')).then(r => r.json()),
+      historyLoaded ? Promise.resolve(null) : fetch('/api/memory').then(r => r.json()),
+    ]);
+
+    // Learning info (only first load)
+    if (memoryRes) {
+      historyLoaded = true;
+      document.getElementById('memLearningSummary').textContent = memoryRes.learning_summary || 'No data';
+      const types = (memoryRes.best_vuln_types || []).map(t => '<span class="type-tag">' + esc(t) + '</span>').join('');
+      document.getElementById('memBestTypes').innerHTML = types || '-';
+    }
+
+    // Populate vuln_type dropdown (once)
+    if (document.getElementById('histVulnType').options.length <= 1) {
+      const vtypes = new Set();
+      for (const f of (findingsRes.findings || [])) {
+        if (f.vuln_type) vtypes.add(f.vuln_type);
+      }
+      const sel = document.getElementById('histVulnType');
+      for (const vt of [...vtypes].sort()) {
+        const opt = document.createElement('option');
+        opt.value = vt;
+        opt.textContent = vt.replace(/_/g, ' ');
+        sel.appendChild(opt);
+      }
+    }
+
+    // Render scans
+    const scans = scansRes.scans || [];
+    if (scans.length === 0) {
+      document.getElementById('histScans').innerHTML = '<div style="color:var(--text-dim)">No scans yet</div>';
+    } else {
+      let shtml = '';
+      for (const s of scans) {
+        const date = s.started_at ? new Date(s.started_at).toLocaleDateString() : '-';
+        shtml += '<div class="cost-row" style="cursor:pointer" onclick="filterHistByTarget(\'' + esc(s.target).replace(/'/g, "\\'") + '\')">' +
+          '<span class="cost-label" title="' + esc(s.target) + '">' + esc(truncate(s.target, 25)) + '</span>' +
+          '<span style="color:var(--text-dim);font-size:11px;margin:0 6px">' + date + '</span>' +
+          '<span class="cost-value">' + (s.findings_count || 0) + ' findings, $' + (s.cost || 0).toFixed(2) + '</span>' +
+          '</div>';
+      }
+      document.getElementById('histScans').innerHTML = shtml;
+    }
+
+    // Render findings (with severity filter applied client-side)
+    let findings = findingsRes.findings || [];
+    if (severity) {
+      findings = findings.filter(f => (f.severity || '').toLowerCase() === severity);
+    }
+
+    document.getElementById('histFindingsCount').textContent = '(' + findings.length + ')';
+
+    if (findings.length === 0) {
+      document.getElementById('histFindings').innerHTML = '<div style="color:var(--text-dim)">No findings match filters</div>';
+    } else {
+      const container = document.getElementById('histFindings');
+      container.innerHTML = '';
+      for (const f of findings) {
+        const sev = (f.severity || 'info').toUpperCase();
+        const sevColor = sev === 'CRITICAL' ? 'var(--red)' : sev === 'HIGH' ? 'var(--orange)' : sev === 'MEDIUM' ? 'var(--yellow)' : 'var(--text-dim)';
+        const status = f.was_accepted ? '<span style="color:var(--green)">accepted</span>' :
+                       f.was_submitted ? '<span style="color:var(--yellow)">submitted</span>' : '';
+        const bounty = f.actual_bounty ? '<span style="color:var(--green)">$' + f.actual_bounty + '</span>' :
+                       f.estimated_bounty ? '<span style="color:var(--text-dim)">~$' + f.estimated_bounty + '</span>' : '';
+
+        // Dig into .data for evidence/description/url (stored as full finding JSON)
+        const d = (typeof f.data === 'object' && f.data) ? f.data : {};
+        const evidence = d.evidence || '';
+        const description = d.description || '';
+        const url = d.url || '';
+        const exploitability = d.ai_exploitability || '';
+        const reproducible = d.reproducible;
+
+        const row = document.createElement('div');
+        row.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer';
+        row.innerHTML =
+          '<div>' +
+          '<span style="color:' + sevColor + ';font-weight:600">[' + esc(sev) + ']</span> ' +
+          '<span style="color:var(--text-dim)">' + esc(f.target || '') + '</span> ' +
+          esc(f.title || f.vuln_type || 'Untitled') +
+          (bounty ? ' ' + bounty : '') +
+          (status ? ' ' + status : '') +
+          '<span style="color:var(--text-dim);font-size:11px"> [+]</span>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-dim);margin-top:2px">' +
+          esc((f.vuln_type || '').replace(/_/g, ' ')) +
+          (f.confidence ? ' | conf: ' + (f.confidence * 100).toFixed(0) + '%' : '') +
+          (f.created_at ? ' | ' + new Date(f.created_at).toLocaleDateString() : '') +
+          '</div>';
+
+        // Build detail panel (hidden by default)
+        const detail = document.createElement('div');
+        detail.style.cssText = 'display:none;margin:4px 0 8px 12px;padding:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:4px;font-size:12px';
+        let dhtml = '';
+        if (url) dhtml += '<div style="margin-bottom:4px"><span style="color:var(--text-dim)">URL:</span> <span style="color:var(--accent);word-break:break-all">' + esc(url) + '</span></div>';
+        if (description) dhtml += '<div style="margin-bottom:4px"><span style="color:var(--text-dim)">Description:</span><pre style="white-space:pre-wrap;margin:2px 0;color:var(--text)">' + esc(description) + '</pre></div>';
+        if (evidence) dhtml += '<div style="margin-bottom:4px"><span style="color:var(--text-dim)">Evidence:</span><pre style="white-space:pre-wrap;margin:2px 0;color:var(--yellow);max-height:200px;overflow-y:auto">' + esc(evidence) + '</pre></div>';
+        if (exploitability) dhtml += '<div style="margin-bottom:4px"><span style="color:var(--text-dim)">Exploitability:</span> ' + esc(exploitability) + '</div>';
+        if (reproducible !== undefined) dhtml += '<div><span style="color:var(--text-dim)">Reproducible:</span> ' + (reproducible ? '<span style="color:var(--green)">Yes</span>' : '<span style="color:var(--text-dim)">No</span>') + '</div>';
+        if (!dhtml) dhtml = '<span style="color:var(--text-dim)">No additional details stored</span>';
+        detail.innerHTML = dhtml;
+
+        row.addEventListener('click', function() {
+          const showing = detail.style.display !== 'none';
+          detail.style.display = showing ? 'none' : '';
+          row.querySelector('span:last-of-type').textContent = showing ? ' [+]' : ' [-]';
+        });
+
+        container.appendChild(row);
+        container.appendChild(detail);
+      }
+    }
+  } catch (e) {
+    console.error('History fetch error:', e);
+    document.getElementById('histFindings').innerHTML = '<div style="color:var(--red)">Error loading history</div>';
+  }
+}
+
+function filterHistByTarget(target) {
+  document.getElementById('histTarget').value = target;
+  fetchHistory();
+}
+
+// ---------------------------------------------------------------------------
+// Graph explorer tab
+// ---------------------------------------------------------------------------
+
+let graphOverviewCache = null;
+
+async function fetchGraphOverview() {
+  try {
+    const [overview, graphStatus] = await Promise.all([
+      fetch('/api/graph/overview').then(r => r.json()),
+      fetch('/api/graph').then(r => r.json()).catch(() => ({connected: false})),
+    ]);
+
+    updateGraphStatus(graphStatus);
+    graphOverviewCache = overview;
+
+    const domains = overview.domains || [];
+    const stats = overview.stats || {};
+
+    document.getElementById('graphDomainCount').textContent =
+      '(' + (stats.total_domains || domains.length) + ' domains, ' +
+      (stats.total_findings || 0) + ' findings' +
+      (stats.total_techs ? ', ' + stats.total_techs + ' techs' : '') + ')';
+
+    if (domains.length === 0) {
+      document.getElementById('graphDomainList').innerHTML =
+        '<div style="color:var(--text-dim)">No domains in ' + (overview.source || 'database') + ' yet. Run a scan first.</div>';
+      return;
+    }
+
+    let html = '';
+    for (const d of domains) {
+      const techs = (d.technologies || []).slice(0, 5);
+      const techBadges = techs.map(t =>
+        '<span class="type-tag" style="cursor:pointer;font-size:10px" onclick="event.stopPropagation();fetchGraphTechniques(\'' + esc(t).replace(/'/g, "\\'") + '\')">' + esc(t) + '</span>'
+      ).join('');
+      const moreCount = (d.technologies || []).length - 5;
+      const more = moreCount > 0 ? '<span style="color:var(--text-dim);font-size:10px">+' + moreCount + '</span>' : '';
+
+      html += '<div style="padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="fetchGraphDomain(\'' + esc(d.domain).replace(/'/g, "\\'") + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span style="color:var(--accent)">' + esc(d.domain) + '</span>' +
+        '<span style="color:var(--text-dim);font-size:11px">' + (d.finding_count || 0) + ' findings</span>' +
+        '</div>' +
+        (techs.length ? '<div style="margin-top:2px">' + techBadges + more + '</div>' : '') +
+        '</div>';
+    }
+    document.getElementById('graphDomainList').innerHTML = html;
+  } catch (e) {
+    console.error('Graph overview error:', e);
+    document.getElementById('graphDomainList').innerHTML = '<div style="color:var(--red)">Error loading graph</div>';
+  }
+}
+
+async function fetchGraphDomain(domain) {
+  const detail = document.getElementById('graphDomainDetail');
+  detail.style.display = '';
+  document.getElementById('graphDomainName').textContent = domain;
+  document.getElementById('graphDomainFindings').innerHTML = 'Loading...';
+  document.getElementById('graphDomainTechs').innerHTML = '';
+  document.getElementById('graphDomainEndpoints').innerHTML = '-';
+
+  try {
+    const data = await fetch('/api/graph/domain?name=' + encodeURIComponent(domain)).then(r => r.json());
+
+    // Technologies
+    const techs = data.technologies || [];
+    if (techs.length) {
+      document.getElementById('graphDomainTechs').innerHTML = techs.map(t =>
+        '<span class="type-tag" style="cursor:pointer" onclick="fetchGraphTechniques(\'' + esc(t).replace(/'/g, "\\'") + '\')">' + esc(t) + '</span>'
+      ).join('');
+    } else {
+      document.getElementById('graphDomainTechs').innerHTML = '<span style="color:var(--text-dim)">No technologies detected</span>';
+    }
+
+    // Findings
+    const findings = data.findings || [];
+    if (findings.length === 0) {
+      document.getElementById('graphDomainFindings').innerHTML = '<span style="color:var(--text-dim)">No findings</span>';
+    } else {
+      let fhtml = '';
+      for (const f of findings) {
+        const sev = (f.severity || 'info').toUpperCase();
+        const sevColor = sev === 'CRITICAL' ? 'var(--red)' : sev === 'HIGH' ? 'var(--orange)' : sev === 'MEDIUM' ? 'var(--yellow)' : 'var(--text-dim)';
+        const accepted = f.accepted === true ? ' <span style="color:var(--green)">accepted</span>' :
+                         f.accepted === false ? '' : '';
+        const bounty = f.bounty ? ' <span style="color:var(--green)">$' + f.bounty + '</span>' :
+                       f.estimated_bounty ? ' <span style="color:var(--text-dim)">~$' + f.estimated_bounty + '</span>' : '';
+        fhtml += '<div style="padding:3px 0;border-bottom:1px solid var(--border)">' +
+          '<span style="color:' + sevColor + ';font-weight:600">[' + esc(sev) + ']</span> ' +
+          '<span style="color:var(--text-dim)">' + esc(f.target || '') + '</span> ' +
+          esc(f.title || f.vuln_type || 'Untitled') + bounty + accepted +
+          (f.technique ? '<div style="font-size:11px;color:var(--cyan)">technique: ' + esc(f.technique) + '</div>' : '') +
+          '</div>';
+      }
+      document.getElementById('graphDomainFindings').innerHTML = fhtml;
+    }
+
+    // Endpoints
+    const endpoints = data.endpoints || [];
+    if (endpoints.length) {
+      document.getElementById('graphDomainEndpoints').innerHTML = endpoints.map(e =>
+        '<div style="font-size:11px;padding:2px 0"><span style="color:var(--cyan)">' +
+        esc(e.method || 'GET') + '</span> ' + esc(e.path || e.url || '') + '</div>'
+      ).join('');
+    } else {
+      document.getElementById('graphDomainEndpoints').innerHTML = '<span style="color:var(--text-dim)">No endpoints recorded</span>';
+    }
+
+    // Scan info
+    if (data.scan_count !== undefined) {
+      document.getElementById('graphDomainName').textContent = domain + ' (' + data.scan_count + ' scans)';
+    }
+    if (data.program) {
+      document.getElementById('graphDomainName').textContent += ' \u2014 ' + (data.program.name || data.program.platform || '');
+    }
+  } catch (e) {
+    console.error('Graph domain error:', e);
+    document.getElementById('graphDomainFindings').innerHTML = '<div style="color:var(--red)">Error loading domain</div>';
+  }
+}
+
+async function fetchGraphTechniques(tech) {
+  const panel = document.getElementById('graphTechPanel');
+  panel.style.display = '';
+  document.getElementById('graphTechTitle').textContent = 'Techniques for: ' + tech;
+  document.getElementById('graphTechResults').innerHTML = 'Loading...';
+
+  try {
+    const data = await fetch('/api/graph/techniques?techs=' + encodeURIComponent(tech)).then(r => r.json());
+    const techniques = data.techniques || [];
+
+    if (techniques.length === 0) {
+      document.getElementById('graphTechResults').innerHTML =
+        '<span style="color:var(--text-dim)">' + (data.note || 'No effective techniques found for this tech') + '</span>';
+      return;
+    }
+
+    let html = '';
+    for (const t of techniques) {
+      const domains = (t.example_domains || []).slice(0, 3);
+      html += '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="display:flex;justify-content:space-between">' +
+        '<span style="font-weight:500">' + esc((t.vuln_type || '').replace(/_/g, ' ')) + '</span>' +
+        '<span style="color:var(--green)">' + (t.accepted_count || 0) + ' accepted' +
+        (t.avg_bounty ? ', avg $' + Number(t.avg_bounty).toFixed(0) : '') + '</span>' +
+        '</div>' +
+        (t.techniques && t.techniques.length ? '<div style="font-size:11px;color:var(--cyan)">' + t.techniques.filter(Boolean).map(esc).join(', ') + '</div>' : '') +
+        (domains.length ? '<div style="font-size:11px;color:var(--text-dim)">' + domains.map(esc).join(', ') + '</div>' : '') +
+        '</div>';
+    }
+    document.getElementById('graphTechResults').innerHTML = html;
+  } catch (e) {
+    console.error('Graph techniques error:', e);
+    document.getElementById('graphTechResults').innerHTML = '<div style="color:var(--red)">Error loading techniques</div>';
+  }
+}
+
+// LLM Thinking Stream
+let _wireAgentsSeen = new Set();
+let _wireLastCount = 0;
+
+async function fetchLLMWire() {
+  try {
+    const agent = document.getElementById('wireAgent').value;
+    const url = '/api/llm-wire?limit=80' + (agent ? '&agent=' + encodeURIComponent(agent) : '');
+    const data = await fetch(url).then(r => r.json());
+    const exchanges = data.exchanges || [];
+
+    // Update agent filter dropdown
+    for (const ex of exchanges) {
+      if (ex.agent && !_wireAgentsSeen.has(ex.agent)) {
+        _wireAgentsSeen.add(ex.agent);
+        const opt = document.createElement('option');
+        opt.value = ex.agent;
+        opt.textContent = ex.agent;
+        document.getElementById('wireAgent').appendChild(opt);
+      }
+    }
+
+    document.getElementById('wireCount').textContent = exchanges.length + ' exchanges';
+
+    if (exchanges.length === 0) {
+      document.getElementById('wireStream').innerHTML =
+        '<div style="color:var(--text-dim);padding:8px 0">Waiting for LLM exchanges...</div>';
+      return;
+    }
+
+    // Show newest at bottom (API returns newest-first, reverse)
+    const sorted = [...exchanges].reverse();
+    const container = document.getElementById('wireStream');
+    const wasAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 30;
+
+    let html = '';
+    for (const ex of sorted) {
+      const time = ex.timestamp ? new Date(ex.timestamp * 1000).toLocaleTimeString() : '?';
+      const dur = ex.duration_ms ? (ex.duration_ms / 1000).toFixed(1) + 's' : '';
+      const tokens_in = (ex.usage && ex.usage.input) || 0;
+      const tokens_out = (ex.usage && ex.usage.output) || 0;
+      const tokStr = tokens_in || tokens_out ? tokens_in + '/' + tokens_out + ' tok' : '';
+      const agentName = ex.agent || '?';
+      const model = ex.model || '';
+      const thinking = ex.thinking || '';
+      const toolCalls = ex.tool_calls || [];
+      const responseText = ex.response_text || '';
+      const msgs = ex.messages || [];
+
+      // Get the last user message as "prompt" (what was sent to the agent)
+      let lastPrompt = '';
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'user' && msgs[i].text) {
+          lastPrompt = msgs[i].text;
+          break;
+        }
+      }
+
+      // Build summary line: thinking snippet or tool calls or response snippet
+      let summaryText = '';
+      if (thinking) {
+        summaryText = thinking.substring(0, 150) + (thinking.length > 150 ? '...' : '');
+      } else if (responseText) {
+        summaryText = responseText.substring(0, 150) + (responseText.length > 150 ? '...' : '');
+      }
+
+      html += '<div class="thinking-entry">';
+
+      // Header line (click to expand)
+      html += '<div class="think-head" onclick="this.parentElement.querySelector(\'.think-detail\').classList.toggle(\'open\')">';
+      html += '<div>';
+      html += '<span class="think-agent">' + esc(agentName) + '</span>';
+      html += '<span class="think-model">' + esc(model) + '</span>';
+      html += '</div>';
+      html += '<div class="think-meta">' + [dur, tokStr, time].filter(Boolean).join(' · ') + '</div>';
+      html += '</div>';
+
+      // Thinking (always visible if present)
+      if (thinking) {
+        html += '<div class="think-thinking">' + esc(summaryText) + '</div>';
+      }
+
+      // Tool calls (always visible if present)
+      if (toolCalls.length) {
+        html += '<div class="think-tools">→ ' + toolCalls.map(tc => esc(typeof tc === 'string' ? tc : tc.name || '?')).join(', ') + '</div>';
+      }
+
+      // Response text (visible as summary if no thinking)
+      if (!thinking && responseText) {
+        html += '<div class="think-summary">' + esc(summaryText) + '</div>';
+      }
+
+      // Expandable detail (click header to toggle)
+      html += '<div class="think-detail">';
+
+      // Prompt sent to LLM (last user message)
+      if (lastPrompt) {
+        html += '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">Prompt (last user msg)</div>';
+        html += '<div class="think-prompt">' + esc(lastPrompt.substring(0, 2000)) + (lastPrompt.length > 2000 ? '\n... (' + lastPrompt.length + ' chars)' : '') + '</div>';
+      }
+
+      // Full thinking
+      if (thinking && thinking.length > 150) {
+        html += '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">Full Thinking</div>';
+        html += '<div class="think-prompt" style="border-left-color:var(--purple)">' + esc(thinking) + '</div>';
+      }
+
+      // Tool call details
+      if (toolCalls.length) {
+        html += '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin-bottom:2px">Tool Calls</div>';
+        for (const tc of toolCalls) {
+          const name = typeof tc === 'string' ? tc : tc.name || '?';
+          const args = typeof tc === 'object' && tc.args ? tc.args : '';
+          html += '<div style="padding:2px 6px;margin-bottom:2px;background:rgba(57,210,192,0.06);border-left:2px solid var(--cyan);border-radius:3px">';
+          html += '<span style="color:var(--cyan);font-weight:600">' + esc(name) + '</span>';
+          if (args) html += '<pre style="margin:1px 0 0;font-size:10px;color:var(--text-dim);white-space:pre-wrap">' + esc(args.substring(0, 500)) + '</pre>';
+          html += '</div>';
+        }
+      }
+
+      // Full response
+      if (responseText) {
+        html += '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin:4px 0 2px">Response</div>';
+        html += '<div class="think-response">' + esc(responseText.substring(0, 3000)) + (responseText.length > 3000 ? '\n... (' + responseText.length + ' chars)' : '') + '</div>';
+      }
+
+      // All input messages
+      if (msgs.length) {
+        html += '<div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;margin:6px 0 2px">All Input Messages (' + msgs.length + ')</div>';
+        for (const m of msgs) {
+          const roleColor = m.role === 'user' ? 'var(--accent)' : m.role === 'assistant' ? 'var(--green)' : 'var(--text-dim)';
+          const text = m.text || '';
+          html += '<div style="padding:2px 6px;margin-bottom:2px;border-left:2px solid ' + roleColor + ';border-radius:3px;background:rgba(255,255,255,0.02)">';
+          html += '<span style="color:' + roleColor + ';font-size:10px;text-transform:uppercase">' + esc(m.role || '?') + '</span> ';
+          html += '<span style="color:var(--text-dim)">' + esc(text.substring(0, 500)) + (text.length > 500 ? '... (' + text.length + ' chars)' : '') + '</span>';
+          html += '</div>';
+        }
+      }
+
+      html += '</div>'; // think-detail
+      html += '</div>'; // thinking-entry
+    }
+
+    container.innerHTML = html;
+
+    // Auto-scroll to bottom if user was near bottom
+    if (wasAtBottom || _wireLastCount !== exchanges.length) {
+      container.scrollTop = container.scrollHeight;
+    }
+    _wireLastCount = exchanges.length;
+  } catch (e) {
+    console.error('LLM thinking stream error:', e);
+  }
+}
+
+// Refresh sidebar periodically
+setInterval(fetchSidebar, 5000);
+
+// Auto-refresh thinking stream when tab is active
+setInterval(() => {
+  const wireTab = document.getElementById('tab-llm-wire');
+  if (wireTab && wireTab.classList.contains('active')) {
+    fetchLLMWire();
+  }
+}, 4000);
+
+// ---------------------------------------------------------------------------
+// Browser streaming
+// ---------------------------------------------------------------------------
+
+let _browserWatchAgent = '';
+let _browserFrameCount = 0;
+let _browserFpsFrames = 0;
+let _browserFpsLast = performance.now();
+
+function watchBrowserAgent(agentId) {
+  _browserWatchAgent = agentId;
+  _browserFrameCount = 0;
+  _browserFpsFrames = 0;
+  _browserFpsLast = performance.now();
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'browser_watch', agent: agentId || null }));
+  }
+
+  const img = document.getElementById('browserImage');
+  const ph = document.getElementById('browserPlaceholder');
+  const urlBar = document.getElementById('browserUrlBar');
+  const titleBar = document.getElementById('browserTitleBar');
+  const meta = document.getElementById('browserMeta');
+
+  if (!agentId) {
+    img.style.display = 'none';
+    ph.style.display = '';
+    ph.textContent = 'Select an agent to watch its browser';
+    urlBar.style.display = 'none';
+    titleBar.style.display = 'none';
+    meta.style.display = 'none';
+    document.getElementById('browserFps').textContent = '';
+  }
+}
+
+function handleBrowserFrame(data) {
+  if (data.agent !== _browserWatchAgent) return;
+
+  const img = document.getElementById('browserImage');
+  const ph = document.getElementById('browserPlaceholder');
+  const urlBar = document.getElementById('browserUrlBar');
+  const titleBar = document.getElementById('browserTitleBar');
+  const meta = document.getElementById('browserMeta');
+
+  if (!data.image) {
+    img.style.display = 'none';
+    ph.style.display = '';
+    ph.textContent = 'No active page — agent may not have navigated yet';
+    urlBar.style.display = 'none';
+    titleBar.style.display = 'none';
+    meta.style.display = 'none';
+    return;
+  }
+
+  img.src = data.image;
+  img.style.display = '';
+  ph.style.display = 'none';
+
+  urlBar.textContent = data.url || '';
+  urlBar.style.display = data.url ? '' : 'none';
+  titleBar.textContent = data.title || '';
+  titleBar.style.display = data.title ? '' : 'none';
+
+  meta.style.display = 'flex';
+  _browserFrameCount++;
+  _browserFpsFrames++;
+
+  // Estimate frame size (base64 is ~4/3 of binary)
+  const sizeKB = Math.round(data.image.length * 3 / 4 / 1024);
+  document.getElementById('browserFrameSize').textContent = sizeKB + ' KB';
+  document.getElementById('browserFrameCount').textContent = 'frame #' + _browserFrameCount;
+
+  // FPS calculation every 3 seconds
+  const now = performance.now();
+  const elapsed = now - _browserFpsLast;
+  if (elapsed > 3000) {
+    const fps = (_browserFpsFrames / (elapsed / 1000)).toFixed(1);
+    document.getElementById('browserFps').textContent = fps + ' FPS';
+    _browserFpsFrames = 0;
+    _browserFpsLast = now;
+  }
+}
+
+function updateBrowserAgentList(browsers) {
+  const select = document.getElementById('browserAgent');
+  const prev = select.value;
+  const opts = [''];
+  select.innerHTML = '<option value="">-- select agent --</option>';
+  for (const id of (browsers || [])) {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id;
+    select.appendChild(opt);
+    opts.push(id);
+  }
+  if (opts.includes(prev)) select.value = prev;
+}
+
+// Start
+connect();
+</script>
+</body>
+</html>

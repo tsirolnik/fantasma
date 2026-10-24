@@ -1,0 +1,188 @@
+"""Load a Profile from a TOML file — the non-Python authoring path.
+
+Schema (every section optional; missing sections fall back to the bugbounty
+defaults):
+
+    [profile]
+    name = "my-profile"
+    description = "..."
+
+    [methodology]
+    type = "pentest"              # built-in name, or "module.path:ClassName"
+
+    [target]
+    provider = "auto"             # built-in name, or "module.path:ClassName"
+
+    [topology]
+    mode = "swarm"                # swarm | lab — no "group" value; see below
+    agents_per_team = 4
+    num_teams = 2                 # >1 on "swarm" IS multi-team competition
+
+    [mechanisms]
+    enabled = ["first_finder_bonus", "duplicate_escalation"]
+
+    [scoring]
+    default_accepted = 10
+    rejected = -10
+    duplicate = -5
+    termination_threshold = -50
+    [scoring.accepted]
+    critical = 50
+    high = 30
+    medium = 15
+    low = 5
+
+See profiles/bugbounty.toml and profiles/redteam.toml for complete examples —
+bugbounty.toml is the original/default behavior expressed entirely as this format.
+"""
+from __future__ import annotations
+
+import tomllib
+from pathlib import Path
+
+from profiles import (
+    Profile, Topology,
+    BUILTIN_METHODOLOGIES, BUILTIN_TARGET_PROVIDERS, _resolve_class,
+)
+from agents.llm_config import LLMConfigMap, AgentLLMConfig
+from memory.scoring_policy import ScoringPolicy, DEFAULT_SCORING
+from memory.coordination_policy import CoordinationPolicy, DEFAULT_COORDINATION
+from memory.mechanisms import MECHANISM_REGISTRY
+
+PROFILES_DIR = Path(__file__).resolve().parent
+
+
+def _resolve_llm(raw: dict) -> LLMConfigMap:
+    """[llm.director] / [llm.default_worker] / [llm.overrides.<agent_name>]
+    each provider="..." model="..." — different models per agent role, e.g.
+    the director on a strong model, workers on a cheap local one. Missing
+    sections keep LLMConfigMap's own defaults (director=claude, workers=ollama)."""
+    cfg = LLMConfigMap()
+    if not raw:
+        return cfg
+    if "director" in raw:
+        cfg.director = AgentLLMConfig(**raw["director"])
+    if "default_worker" in raw:
+        cfg.default_worker = AgentLLMConfig(**raw["default_worker"])
+    for agent_name, spec in raw.get("overrides", {}).items():
+        cfg.overrides[agent_name] = AgentLLMConfig(**spec)
+    return cfg
+
+
+def _resolve_coordination(raw: dict) -> CoordinationPolicy:
+    if not raw:
+        return DEFAULT_COORDINATION
+    return CoordinationPolicy(
+        claim_mode=raw.get("claim_mode", DEFAULT_COORDINATION.claim_mode),
+        director_review_interval_s=raw.get("director_review_interval_s",
+                                            DEFAULT_COORDINATION.director_review_interval_s),
+        cross_team_sharing=raw.get("cross_team_sharing", DEFAULT_COORDINATION.cross_team_sharing),
+    )
+
+
+def _resolve_scoring(raw: dict) -> ScoringPolicy:
+    if not raw:
+        return DEFAULT_SCORING
+    return ScoringPolicy(
+        accepted=dict(raw.get("accepted", DEFAULT_SCORING.accepted)),
+        default_accepted=raw.get("default_accepted", DEFAULT_SCORING.default_accepted),
+        rejected=raw.get("rejected", DEFAULT_SCORING.rejected),
+        duplicate=raw.get("duplicate", DEFAULT_SCORING.duplicate),
+        termination_threshold=raw.get("termination_threshold", DEFAULT_SCORING.termination_threshold),
+    )
+
+
+def parse_profile_toml(text: str, *, source: str = "<string>") -> Profile:
+    """Parse TOML text into a Profile. Raises ValueError with a clear message
+    on an unknown methodology/target-provider/mechanism name — never silently
+    falls back, since a typo'd config silently running the wrong behavior is
+    worse than a startup error."""
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"{source}: invalid TOML: {exc}") from exc
+
+    meta = data.get("profile", {})
+    name = meta.get("name", Path(source).stem)
+    description = meta.get("description", "")
+
+    # Every key besides the one that SELECTS the class is passed through as a
+    # constructor kwarg — the same generic config-passthrough mechanisms get
+    # via build_mechanisms. A profile isn't limited to knobs this file named
+    # in advance; a class (built-in or a third party's own) just reads
+    # self.config for whatever it wants.
+    methodology_table = dict(data.get("methodology", {}))
+    methodology_spec = methodology_table.pop("type", "pentest")
+    methodology_cls = _resolve_class(methodology_spec, BUILTIN_METHODOLOGIES)
+    try:
+        methodology = methodology_cls(**methodology_table)
+    except TypeError as exc:
+        raise ValueError(f"{source}: bad [methodology] parameters: {exc}") from exc
+
+    target_table = dict(data.get("target", {}))
+    provider_spec = target_table.pop("provider", "auto")
+    provider_cls = _resolve_class(provider_spec, BUILTIN_TARGET_PROVIDERS)
+    try:
+        target_provider = provider_cls(**target_table)
+    except TypeError as exc:
+        raise ValueError(f"{source}: bad [target] parameters: {exc}") from exc
+
+    topo_raw = data.get("topology", {})
+    topology = Topology(
+        mode=topo_raw.get("mode", "swarm"),
+        agents_per_team=topo_raw.get("agents_per_team", 4),
+        num_teams=topo_raw.get("num_teams", 1),
+    )
+    if topology.mode not in ("swarm", "lab"):
+        # No "group" value: multi-team competition is num_teams > 1 on the
+        # "swarm" engine, not a separate mode — see Topology's docstring.
+        raise ValueError(f"{source}: [topology].mode must be 'swarm' or 'lab', got {topology.mode!r}. "
+                          f"For multi-team competition, set num_teams > 1, not a separate mode.")
+
+    # Two forms, mergeable: `enabled = [...]` plain names (default knobs), and
+    # `[[mechanisms.items]]` tables for tuned knobs or a custom "class".
+    mech_raw = data.get("mechanisms", {})
+    mechanisms: list = list(mech_raw.get("enabled", []))
+    mechanisms += list(mech_raw.get("items", []))
+    for spec in mechanisms:
+        ref = spec if isinstance(spec, str) else (spec.get("class") or spec.get("name"))
+        if isinstance(ref, str) and ":" not in ref and ref not in MECHANISM_REGISTRY:
+            raise ValueError(f"{source}: unknown mechanism {ref!r}. Known: {sorted(MECHANISM_REGISTRY)}")
+
+    scoring = _resolve_scoring(data.get("scoring", {}))
+    llm = _resolve_llm(data.get("llm", {}))
+    coordination = _resolve_coordination(data.get("coordination", {}))
+    if coordination.claim_mode not in ("exclusive", "shared"):
+        raise ValueError(f"{source}: [coordination].claim_mode must be 'exclusive' or 'shared', "
+                          f"got {coordination.claim_mode!r}")
+
+    return Profile(
+        name=name, description=description,
+        methodology=methodology, target_provider=target_provider,
+        scoring=scoring, mechanisms=mechanisms, topology=topology,
+        llm=llm, coordination=coordination,
+    )
+
+
+def load_profile(name_or_path: str) -> Profile:
+    """Resolve a profile by built-in name ('bugbounty', 'redteam'), a path to
+    a .toml file, or the name of a .toml file shipped under profiles/.
+
+    Built-in names are NOT a separately-maintained Python object — they
+    resolve to profiles/<name>.toml exactly like any other shipped profile.
+    There is exactly one source of truth for what a named profile means."""
+    candidates = [Path(name_or_path)]
+    if not name_or_path.endswith(".toml"):
+        candidates.append(PROFILES_DIR / f"{name_or_path}.toml")
+    else:
+        candidates.append(PROFILES_DIR / name_or_path)
+
+    for path in candidates:
+        if path.is_file():
+            return parse_profile_toml(path.read_text(), source=str(path))
+
+    shipped = sorted(p.stem for p in PROFILES_DIR.glob("*.toml"))
+    raise ValueError(
+        f"No profile named/at {name_or_path!r}. "
+        f"Shipped under profiles/: {shipped}. Or pass a path to a .toml file."
+    )

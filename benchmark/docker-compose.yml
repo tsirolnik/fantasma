@@ -1,0 +1,87 @@
+# swarmhound benchmark lab — intentionally vulnerable, legal-to-attack targets.
+#
+# These images exist expressly to be attacked for training/testing. Run them on
+# an isolated host, and bring them DOWN when you're done.
+#
+#   docker compose -f benchmark/docker-compose.yml up -d
+#   docker compose -f benchmark/docker-compose.yml down
+#
+# Networking (no LAN exposure):
+#   * Ports are published on 127.0.0.1 only — reachable from HOST-side tools
+#     (the in-process browser + HTTP client) at http://localhost:<port>.
+#   * Every target also joins the `benchnet` bridge network under a stable
+#     hostname, so the swarm's Docker-SANDBOXED tools (nuclei/httpx/sqlmap/...)
+#     — which run in their own containers attached to benchnet — reach the
+#     target internally at http://bench-<name>:<container-port>. Nothing is
+#     exposed outside this host.
+
+name: swarmhound-bench
+
+networks:
+  benchnet:
+    name: swarmhound-benchnet
+
+services:
+  # OWASP Juice Shop — modern Node/Angular SPA, OWASP Top 10 across the board.
+  # Native arm64 + amd64.  Sandbox reaches it at http://bench-juice-shop:3000
+  juice-shop:
+    image: bkimminich/juice-shop:v17.1.1
+    container_name: bench-juice-shop
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [benchnet]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/rest/admin/application-version"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # DVWA — classic PHP/MySQL deliberately vulnerable app. Multi-arch (ghcr).
+  # Sandbox reaches it at http://bench-dvwa:80
+  dvwa:
+    image: ghcr.io/digininja/dvwa:latest
+    container_name: bench-dvwa
+    ports:
+      - "127.0.0.1:8080:80"
+    networks: [benchnet]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/login.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # VAmPI — deliberately vulnerable REST API (great for API-focused tests).
+  # amd64 image; on Apple Silicon it runs under emulation (slower but works).
+  # Sandbox reaches it at http://bench-vampi:5000
+  vampi:
+    image: erev0s/vampi:latest
+    container_name: bench-vampi
+    platform: linux/amd64
+    environment:
+      - vulnerable=1
+    ports:
+      - "127.0.0.1:5001:5000"
+    networks: [benchnet]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # PaperTrail — a custom, never-published vulnerable app built for a BLIND test
+  # (the model cannot have memorized it). Sandbox reaches it at bench-papertrail:5002
+  papertrail:
+    build: ./blindapp
+    container_name: bench-papertrail
+    ports:
+      - "127.0.0.1:5002:5002"
+    networks: [benchnet]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5002/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
