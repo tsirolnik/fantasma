@@ -144,8 +144,8 @@ class LearningMemory:
 
         Returns (should_scan, reason).
         """
-        if self.store.was_recently_scanned(target, hours=hours_cooldown):
-            return False, f"Scanned within last {hours_cooldown}h"
+        # Skip the recent-scan cooldown — allows re-testing same target.
+        # The learning model still tracks history for ROI adaptation.
 
         history = self.get_target_history(target)
         if history["scan_count"] >= 3 and history["total_findings"] == 0:
