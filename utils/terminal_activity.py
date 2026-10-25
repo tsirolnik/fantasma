@@ -44,6 +44,8 @@ class TerminalActivity:
         self.live_inspector = False
         self.inspected_id = None
         self.inspect_offset = 0
+        self.follow_tail = True
+        self.inspect_max_offset = 0
         self.phase = "Idle"
 
     def begin(self):
@@ -77,20 +79,35 @@ class TerminalActivity:
         if not (self.expanded and self.live_inspector):
             return status
         import shutil
+        import textwrap
         size = shutil.get_terminal_size((80, 24))
         height = max(1, min(12, size.lines - 5))
-        lines = self.peek(self.inspected_id).splitlines()
-        self.inspect_offset = min(self.inspect_offset, max(0, len(lines) - height))
+        lines = [wrapped for line in self.peek(self.inspected_id).splitlines()
+                 for wrapped in (textwrap.wrap(line, width=max(1, size.columns - 1),
+                                 replace_whitespace=False, drop_whitespace=False) or [''])]
+        self.inspect_max_offset = max(0, len(lines) - height)
+        if self.follow_tail:
+            self.inspect_offset = self.inspect_max_offset
+        else:
+            self.inspect_offset = min(self.inspect_offset, self.inspect_max_offset)
         visible = lines[self.inspect_offset:self.inspect_offset + height]
         panel = [line[:max(1, size.columns - 1)] for line in visible]
-        return status + '\n Ctrl+O / Esc: close · PgUp/PgDn: scroll\n' + '\n'.join(panel)
+        position = 'following tail' if self.follow_tail else 'scrolled; End to follow'
+        return status + f'\n Ctrl+O / Esc: close · PgUp/PgDn: scroll · {position}\n' + '\n'.join(panel)
 
     def set_inspection(self, enabled, identifier=None):
         self.expanded = enabled
         self.inspected_id = identifier
         self.inspect_offset = 0
+        self.follow_tail = True
         if not self.live_inspector:
             self.write(self.peek(identifier) if enabled else 'Inspector closed. Compact tool output restored.')
+
+    def scroll_inspection(self, lines):
+        # Refresh the bounds before moving from the currently displayed tail.
+        self.toolbar()
+        self.inspect_offset = max(0, min(self.inspect_max_offset, self.inspect_offset + lines))
+        self.follow_tail = lines > 0 and self.inspect_offset == self.inspect_max_offset
 
     def tool_started(self, agent, name, params):
         name = clean_label(name)
@@ -147,8 +164,13 @@ class TerminalActivity:
         text = re.sub(r'(?i)(bearer\s+)[^\s"\\]+', r'\1[redacted]', text)
         text = re.sub(r'(https?://)[^/\s@]+@', r'\1[redacted]@', text)
         text = re.sub(r'(?i)([?&](?:token|api_key|key|secret|password)=)[^&\s"\\]+', r'\1[redacted]', text)
+        if isinstance(value, str):
+            # JSON escaping is useful for redaction but not for a terminal log view.
+            text = json.loads(text)
         text = ''.join(c for c in text if c.isprintable() or c == '\n')
-        return text[:4000] + ('\n… [preview truncated]' if len(text) > 4000 else '')
+        if len(text) > 4000:
+            return text[:1000] + '\n… [middle omitted; showing tail] …\n' + text[-2950:]
+        return text
 
     def format_call(self, call):
         elapsed = call["duration"] if call["duration"] is not None else time.monotonic() - call["started"]

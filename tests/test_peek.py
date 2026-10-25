@@ -50,6 +50,43 @@ class PeekTests(unittest.TestCase):
         activity.set_inspection(False)
         self.assertEqual(output,['Inspector closed. Compact tool output restored.'])
 
+    def test_inspector_follows_tail_but_respects_manual_scroll(self):
+        from unittest.mock import patch
+        import os
+        activity=TerminalActivity(lambda text: None)
+        activity.live_inspector=True
+        activity.set_inspection(True)
+        with patch('shutil.get_terminal_size', return_value=os.terminal_size((80, 15))), \
+             patch.object(activity, 'peek', return_value='\n'.join(f'line {n}' for n in range(50))):
+            self.assertIn('line 49',activity.toolbar())
+            activity.scroll_inspection(-8)
+            offset=activity.inspect_offset
+            self.assertFalse(activity.follow_tail)
+            self.assertNotIn('line 49',activity.toolbar())
+            with patch.object(activity,'peek',return_value='\n'.join(f'line {n}' for n in range(60))):
+                activity.toolbar()
+                self.assertEqual(activity.inspect_offset,offset)
+                activity.follow_tail=True
+                self.assertIn('line 59',activity.toolbar())
+            activity.set_inspection(False)
+            activity.set_inspection(True)
+            self.assertTrue(activity.follow_tail)
+
+    def test_long_output_preserves_and_displays_tail(self):
+        from unittest.mock import patch
+        import os
+        activity=TerminalActivity(lambda text: None)
+        output='START\n'+('long output '*800)+'FINAL RESULT'
+        preview=activity.preview(output)
+        self.assertIn('START',preview)
+        self.assertTrue(preview.endswith('FINAL RESULT'))
+        self.assertLessEqual(len(preview),4000)
+        activity.tool_finished(ToolCall('test',{},output=output))
+        activity.live_inspector=True
+        activity.set_inspection(True)
+        with patch('shutil.get_terminal_size', return_value=os.terminal_size((80,24))):
+            self.assertIn('FINAL RESULT',activity.toolbar())
+
     def test_expanded_output_is_opt_in(self):
         out=[]
         activity=TerminalActivity(out.append)

@@ -77,10 +77,14 @@ async def terminal_lines(session=None):
             session.activity.set_inspection(False)
         @keys.add('pagedown', filter=inspecting)
         def scroll_inspector_down(event):
-            session.activity.inspect_offset += 8
+            session.activity.scroll_inspection(8)
         @keys.add('pageup', filter=inspecting)
         def scroll_inspector_up(event):
-            session.activity.inspect_offset = max(0, session.activity.inspect_offset - 8)
+            session.activity.scroll_inspection(-8)
+
+        @keys.add('end', filter=inspecting)
+        def follow_inspector_tail(event):
+            session.activity.follow_tail = True
 
         @keys.add('c-o')
         def inspect_tools(event):
