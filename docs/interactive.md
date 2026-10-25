@@ -33,6 +33,45 @@ There is one pentester in this conversational implementation. It uses the
 the cost budget applies across the session. No model or browser is created until
 your first plain-text request. Controls such as `/status` do not call a model.
 
+## Saved sessions
+
+Interactive CLI sessions are automatically saved under `data/sessions/` in the
+working directory. The session ID is printed at startup; `/session` shows it again.
+To use another directory, export `FANTASMA_SESSIONS_DIR` before launching Fantasma.
+
+```bash
+fantasma                              # Start a new, autosaved session
+fantasma sessions                     # List saved sessions; no model calls
+fantasma full --resume-session        # Restore the most recently updated session
+fantasma full --resume-session ID     # Restore a specific session
+```
+
+Inside a session:
+
+- `/save` writes a snapshot immediately.
+- `/stop` cancels work and saves the interrupted request.
+- `/continue` restarts the interrupted request using saved context and recent tool
+  observations. It may make new model/tool calls; it does not replay a suspended
+  process at its exact instruction.
+- `/quit` saves and closes. On resume, no investigation starts until you send an
+  instruction or use `/continue`.
+
+Snapshots retain completed conversation history, scope, shared-memory notes and
+findings, recent bounded tool previews, the pending request, budget and recorded
+spend. They are saved after scope changes, request/model/tool progress, and clean
+shutdown. An abrupt crash can lose changes since the latest snapshot. Browser
+cookies/processes, live tool processes, and provider-side requests are not restored.
+
+The saved profile reference is loaded again when resuming. Its current contents
+and current `.env` settings apply; credentials are not copied from configuration
+into snapshots. Explicit `--profile`, `--targets`, and `--budget` can override the
+saved defaults. The restored budget includes previously recorded spend.
+
+Session files may contain sensitive conversation and tool evidence. Files are
+created with owner-only permissions and stored outside Git's tracked files.
+Only one Fantasma process may open a given session for writing at a time. These
+interactive sessions are separate from swarm/lab checkpoint resume.
+
 ## Steering and interruption
 
 - `/steer TEXT` queues guidance for the next model step. An active tool continues.
@@ -146,11 +185,13 @@ shared-memory changes and completed external actions are not rolled back.
 
 The current reader uses asyncio terminal file-descriptor support on macOS/Linux.
 This is a basic text console, not feature parity with Claude Code or Codex: no
-full-screen UI, token streaming, multi-pentester chat routing, or persistent chat
-resume. Tools are announced by name and the final answer is printed when ready.
+full-screen UI, token streaming, or multi-pentester chat routing. Tools are
+announced by name, an inspector shows their details, and replies render Markdown.
+Local session snapshots support conversation resume.
 
 Browser tools are available unless `--no-browser` is selected. Shared memory,
-mechanism state and conversation live for this session; logs use `data/logs/`.
+conversation and shared findings are saved in session snapshots; logs use
+`data/logs/`. Custom mechanism instance state is not serialized.
 There is no automatic SQLite finding persistence, graph integration, independent
 validator, Director review or report generation in this path. Claim, submit,
 turn and run-end mechanism hooks are supported; Director-review hooks have no

@@ -7,6 +7,8 @@ from commands.base import Arg, register
 _LLM_CHOICES = ["claude", "gemini", "ollama", "openai", "vertex"]
 
 ARGS = [
+    Arg(("--resume-session",), dict(nargs="?", const="latest", default=None, metavar="ID",
+        help="Restore an interactive session (omit ID for latest); waits for your next instruction")),
     Arg(("--diagnostics",), dict(action="store_true", help="Show interactive console diagnostics (also enabled by global --verbose)")),
     Arg(("--interaction",), dict(choices=["batch", "terminal", "web"], default=None,
                                  help="Override terminal/batch interaction; legacy web enables the dashboard")),
@@ -163,6 +165,13 @@ async def _run(args, orchestrator, mcp_runtime) -> None:
     # --profile: load methodology/target-provider/scoring/mechanisms/topology
     # as one bundle. Explicit CLI flags below still override it — a profile
     # sets DEFAULTS, not a hard lock.
+    saved_session = None
+    if getattr(args, "resume_session", None):
+        from memory.interactive_sessions import InteractiveSessionStore
+        saved_session = InteractiveSessionStore().load(args.resume_session)
+        args.resume_session = saved_session["id"]
+        if not getattr(args, "profile", None):
+            args.profile = saved_session["profile"]
     profile = None
     profile_name = getattr(args, "profile", None)
     if profile_name is None:
@@ -174,6 +183,8 @@ async def _run(args, orchestrator, mcp_runtime) -> None:
         profile = load_profile(profile_name)
         if mode is None:
             mode = profile.topology.mode
+    if saved_session and mode not in ("pentester", "interactive"):
+        raise ValueError("--resume-session requires a pentester profile")
     llm_config = apply_cli_llm_overrides(profile.llm, args)
     from utils.console_logging import configure_console_logging
     diagnostics = getattr(args, "diagnostics", False) or getattr(args, "verbose", False) or profile.interaction.diagnostics

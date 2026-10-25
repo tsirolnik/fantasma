@@ -143,7 +143,7 @@ async def async_main(args: argparse.Namespace) -> None:
     if overrides:
         override_settings(**overrides)
 
-    orchestrator = None if args.command in ("full", "profiles") else Orchestrator(llm_name=args.llm)
+    orchestrator = None if args.command in ("full", "profiles", "sessions") else Orchestrator(llm_name=args.llm)
 
     command = REGISTRY[args.command]
     await command.handler(args, orchestrator)
@@ -152,7 +152,7 @@ async def async_main(args: argparse.Namespace) -> None:
 def main():
     parser = build_parser()
     args = parser.parse_args(sys.argv[1:] or ["full"])
-    if args.command != "profiles":
+    if args.command not in ("profiles", "sessions"):
         setup_logging(args.verbose, quiet_console=args.command == "full" and not args.verbose)
 
     try:

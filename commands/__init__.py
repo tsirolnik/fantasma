@@ -17,4 +17,5 @@ from . import (  # noqa: F401
     validate,
     graph_sync,
     profiles,
+    sessions,
 )

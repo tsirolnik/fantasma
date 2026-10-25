@@ -19,12 +19,12 @@ usage: fantasma [-h] [--version] [--llm {claude,gemini,ollama,openai,vertex}]
                 [--vertex-region VERTEX_REGION] [--vertex-model VERTEX_MODEL]
                 [--gemini-api-key GEMINI_API_KEY]
                 [--gemini-model GEMINI_MODEL]
-                {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles} ...
+                {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions} ...
 
 Configurable AI-assisted pentesting and security research
 
 positional arguments:
-  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles}
+  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions}
     discover            Find high-ROI bug bounty programs
     scan                Scan a specific target
     fuzz                Fuzz a binary target (experimental)
@@ -38,6 +38,7 @@ positional arguments:
     graph-sync          Rebuild FalkorDB graph from SQLite data
     profiles            Inspect profiles and list mechanisms without starting
                         a run
+    sessions            List saved interactive sessions
 
 options:
   -h, --help            show this help message and exit
@@ -113,9 +114,10 @@ options:
 Source: [commands/full.py](../../commands/full.py).
 
 ```text
-usage: fantasma full [-h] [--diagnostics] [--interaction {batch,terminal,web}]
-                     [--top TOP] [--min-bounty MIN_BOUNTY] [--budget BUDGET]
-                     [--auto] [--dry-run]
+usage: fantasma full [-h] [--resume-session [ID]] [--diagnostics]
+                     [--interaction {batch,terminal,web}] [--top TOP]
+                     [--min-bounty MIN_BOUNTY] [--budget BUDGET] [--auto]
+                     [--dry-run]
                      [--director-llm {claude,gemini,ollama,openai,vertex}]
                      [--director-model DIRECTOR_MODEL]
                      [--worker-llm {claude,gemini,ollama,openai,vertex}]
@@ -135,6 +137,9 @@ usage: fantasma full [-h] [--diagnostics] [--interaction {batch,terminal,web}]
 
 options:
   -h, --help            show this help message and exit
+  --resume-session [ID]
+                        Restore an interactive session (omit ID for latest);
+                        waits for your next instruction
   --diagnostics         Show interactive console diagnostics (also enabled by
                         global --verbose)
   --interaction {batch,terminal,web}
@@ -343,6 +348,17 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
+```
+
+## sessions
+
+Source: [commands/sessions.py](../../commands/sessions.py).
+
+```text
+usage: fantasma sessions [-h]
+
+options:
+  -h, --help  show this help message and exit
 ```
 
 ## Offline profile tools

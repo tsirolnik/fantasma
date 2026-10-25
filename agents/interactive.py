@@ -47,6 +47,9 @@ class InteractivePentester(PenTesterAgent):
 
 
 HELP = """Enter a question or investigation request. No work starts until you send one.
+/session           Show session ID and resume command
+/save              Save the current session
+/continue          Continue the last interrupted request
 /scope HOST[,HOST]  Set authorized hosts (only while idle)
 /status            Show scope, spend and finding count
 /peek [ID|on|off]  Inspect tool inputs/results; Ctrl+O toggles live details
@@ -141,10 +144,70 @@ class InteractiveSession:
         self.activity = TerminalActivity(lambda text: self.write(text))
         self.live_terminal = False
         self.pending_steering = []
+        self.store = None
+        self.session_id = None
+        self.saved_history = []
+        self.pending_request = ""
+        self.session_status = "idle"
+        self.save_error_shown = False
+        self.saved_observations = []
         self.diagnostics = (getattr(args, "diagnostics", False) or
                             getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
         self.budget = args.budget if args.budget is not None else get_settings().session_budget
+
+    def attach_store(self, store, snapshot=None):
+        from memory.checkpoint import restore_shared_memory
+        self.store = store
+        self.session_id = store.session_id
+        if snapshot:
+            self.saved_history = snapshot.get('history', [])
+            self.saved_observations = snapshot.get('observations', [])
+            self.scope = self.parse_scope(','.join(snapshot.get('scope', [])))
+            self.pending_request = snapshot.get('pending_request', '')
+            self.session_status = 'interrupted' if self.pending_request else 'idle'
+            restore_shared_memory(self.memory, snapshot.get('memory', {}))
+            self.memory._finding_reporters = snapshot.get('finding_reporters', ['pentester'] * len(self.memory._findings))
+            self.memory.allowed_domains = set(self.scope)
+            self.cost.add_cost('previous_session', snapshot.get('cost', 0), detail='Restored session spend')
+            if self.args.budget is None:
+                self.budget = snapshot.get('budget', self.budget)
+            if getattr(self.args, 'targets', None):
+                self.set_scope(self.parse_scope(self.args.targets))
+        self.save()
+
+    def save(self):
+        if self.store is None:
+            return False
+        from pathlib import Path
+        from memory.checkpoint import capture_shared_memory
+        profile_ref = getattr(self.args, 'profile', None) or self.profile.name
+        if Path(profile_ref).is_file():
+            profile_ref = str(Path(profile_ref).resolve())
+        history = getattr(self.agent, 'history', self.saved_history) if self.agent else self.saved_history
+        try:
+            self.store.save(dict(id=self.session_id, profile=profile_ref,
+                scope=self.scope, history=history, memory=capture_shared_memory(self.memory),
+                finding_reporters=list(self.memory._finding_reporters),
+                cost=self.cost.get_total(), budget=self.budget,
+                pending_request=self.pending_request, status=self.session_status,
+                observations=([dict(name=c["name"], status=c["status"], input=c["input"], output=c["output"])
+                              for c in self.activity.calls[-20:]] or self.saved_observations)))
+            self.save_error_shown = False
+            return True
+        except (OSError, ValueError, TypeError) as exc:
+            if not self.save_error_shown:
+                self.write(f'Session save failed: {exc}. Use /save to retry.')
+                self.save_error_shown = True
+            return False
+
+    def model_finished(self, *args):
+        self.activity.llm_finished(*args)
+        self.save()
+
+    def tool_finished(self, call):
+        self.activity.tool_finished(call)
+        self.save()
 
     @staticmethod
     def parse_scope(text):
@@ -187,11 +250,12 @@ class InteractiveSession:
             max_iterations=self.profile.interaction.max_iterations,
             max_total_tool_calls=self.profile.interaction.max_tool_calls,
         )
+        self.agent.history = list(self.saved_history)
         self.agent.session_budget = self.budget
         self.agent.on_tool_start = self.activity.tool_started
-        self.agent.on_tool_call = self.activity.tool_finished
+        self.agent.on_tool_call = self.tool_finished
         self.agent.on_llm_start = self.activity.llm_started
-        self.agent.on_llm_call = self.activity.llm_finished
+        self.agent.on_llm_call = self.model_finished
         self.set_scope(self.scope)
 
     def set_scope(self, scope):
@@ -210,6 +274,8 @@ class InteractiveSession:
             result = await self.agent.execute(TaskAssignment(
                 agent_name='pentester', task_type='interactive', context=text))
             if result.success:
+                self.pending_request = ""
+                self.session_status = "idle"
                 self.write(MarkdownMessage(result.reflection or json.dumps(result.data, default=str)))
             else:
                 self.write(f'Work stopped: {result.error}')
@@ -218,6 +284,9 @@ class InteractiveSession:
         except Exception as exc:
             self.write(f'Session error: {exc}')
         finally:
+            if self.pending_request:
+                self.session_status = 'interrupted'
+            self.save()
             self.pending_steering.clear()
             self.activity.finish()
         if not self.live_terminal and sys.stdin.isatty() and sys.stdout.isatty():
@@ -231,18 +300,26 @@ class InteractiveSession:
         self.task = None
         self.pending_steering.clear()
         self.activity.finish()
+        if self.pending_request:
+            self.session_status = "interrupted"
+        self.save()
         if self.agent:
             self.agent._sticky_directives.clear()
             while not self.agent._directive_queue.empty():
                 self.agent._directive_queue.get_nowait()
 
     def start_request(self, text):
+        self.pending_request = text
+        self.session_status = "running"
+        self.save()
         self.activity.begin()
         if not self.live_terminal:
             self.write('Thinking… 👻 Consulting the packet spirits. (/stop to cancel)')
         self.task = asyncio.create_task(self.ask(text))
 
     def steer(self, text):
+        self.pending_request += f"\nAdditional guidance: {text}"
+        self.save()
         if self.agent:
             self.agent.inject_directive(text)
         else:
@@ -279,6 +356,20 @@ class InteractiveSession:
                 self.steer(guidance)
             else:
                 self.start_request(guidance)
+        elif text == '/session':
+            self.write(f'Session: {self.session_id or "not persisted"}\nResume: fantasma full --resume-session {self.session_id or "ID"}')
+        elif text == '/save':
+            if self.save():
+                self.write(f'Session saved: {self.session_id}')
+        elif text == '/continue':
+            if self.task and not self.task.done():
+                self.write('Work is already running. Use /steer, /interrupt, or /stop.')
+            elif self.pending_request:
+                request = self.pending_request
+                observations = self.activity.peek() if self.activity.calls else json.dumps(self.saved_observations, ensure_ascii=False)
+                self.start_request('Continue the interrupted request below. Review existing findings and context before repeating actions.\n' + request + '\nRecent tool observations (may be truncated):\n' + observations)
+            else:
+                self.write('No interrupted request. Send a new instruction to continue the conversation.')
         elif text == '/help':
             self.write(HELP)
         elif text == '/peek' or text.startswith('/peek '):
@@ -301,6 +392,7 @@ class InteractiveSession:
             else:
                 try:
                     self.set_scope(self.parse_scope(text[6:].strip()))
+                    self.save()
                     self.write(f'Scope: {self.scope}')
                 except ValueError as exc:
                     self.write(str(exc))
@@ -313,6 +405,10 @@ class InteractiveSession:
         return True
 
     async def run(self, lines):
+        if self.session_id:
+            self.write(f'Session: {self.session_id} (autosaved; /session for resume command)')
+            if self.pending_request:
+                self.write('An interrupted request is saved. Use /continue or send a new instruction; no work resumes automatically.')
         cfg = self.llm_config.get_config('scanner')
         self.write(f'Interactive profile: {self.profile.name}\nModel provider: {cfg.provider} ({cfg.model or "configured default model"})\n{HELP}')
         try:
@@ -333,13 +429,22 @@ async def run_interactive(profile, llm_config, args, mechanisms):
     session = InteractiveSession(profile, llm_config, args, mechanisms, write=terminal_write)
     session.live_terminal = (sys.stdin.isatty() and sys.stdout.isatty()
                              and os.environ.get("TERM", "") != "dumb")
+    from memory.interactive_sessions import InteractiveSessionStore
+    store = InteractiveSessionStore()
+    resume_id = getattr(args, 'resume_session', None)
+    store.acquire(resume_id)
     web_ui = None
     try:
+        snapshot = store.load(resume_id) if resume_id else None
+        session.attach_store(store, snapshot)
         if getattr(args, "web", False) or profile.dashboard.enabled:
             from web.interactive import InteractiveWebUI
             web_ui = InteractiveWebUI(session)
             await web_ui.start()
         await session.run(terminal_lines(session))
     finally:
-        if web_ui is not None:
-            await web_ui.shutdown()
+        try:
+            if web_ui is not None:
+                await web_ui.shutdown()
+        finally:
+            store.close()

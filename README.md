@@ -44,6 +44,9 @@ After [installation](#install), run `fantasma` to open the default
 [interactive pentester](docs/interactive.md). Set `/scope`, ask a question or give
 an investigation task, and use `/stop` to cancel active work. It waits for your
 request and retains conversation context; it does not launch an unattended scan.
+Sessions autosave locally. Use `fantasma sessions` to list them and
+`fantasma full --resume-session ID` to reopen one. In a session, `/stop` cancels
+work and `/continue` restarts an interrupted request with saved context.
 
 ## What is configurable?
 
