@@ -45,6 +45,7 @@ Ctrl+O switches to tool activity. Context opens at the top; PgUp/PgDn scroll it.
 | `/context N` | Message N, numbered from 1 |
 | `/context tools` | Tool schemas from the last assembled request |
 | `/context prompt` | Current agent system instructions |
+| `/context plan` | Agent-recorded decision journal: questions, evidence, conclusions, next steps |
 | `/context memory` | Shared findings and recent notes; not necessarily all sent to the model |
 | `/context off` | Close inspection |
 
@@ -55,6 +56,21 @@ a live server-side context window. Conversation content may still be sensitive. 
 message content, not exact tokens. Previews use the same redaction and size bounds
 as tool inspection and do not cause model calls. Capture previews are in memory;
 a resumed session starts with its saved conversation until the next request.
+
+## Keeping an investigation coherent
+
+For multi-step work, the interactive methodology asks the agent to maintain a
+`record_investigation` decision journal: question, observed evidence, conclusion,
+next step, and status (`active`, `ruled_out`, `blocked`, or `complete`). Reusing a
+question updates its entry. The journal is bounded, included in each step's
+progress briefing, saved with the session, and visible through `/context plan`.
+
+The interactive briefing no longer injects swarm score or target-claim reminders.
+It distinguishes an attempted tool call from a completed test and prompts the
+agent to summarize or ask for missing inputs when no supported next step remains.
+Simple questions need neither a journal nor tools. These are model-facing
+instructions and recorded state, not a guarantee of sound judgment; the journal
+is self-reported and does not independently validate evidence.
 
 ## Saved sessions
 
@@ -80,7 +96,7 @@ Inside a session:
   instruction or use `/continue`.
 
 Snapshots retain completed conversation history, scope, shared-memory notes and
-findings, recent bounded tool previews, the pending request, budget and recorded
+findings, the decision journal, recent bounded tool previews, the pending request, budget and recorded
 spend. They are saved after scope changes, request/model/tool progress, and clean
 shutdown. An abrupt crash can lose changes since the latest snapshot. Browser
 cookies/processes, live tool processes, and provider-side requests are not restored.

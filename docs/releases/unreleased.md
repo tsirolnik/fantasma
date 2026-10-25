@@ -18,6 +18,13 @@ v0.1.0 tag and release archives have not been rebuilt with them.
   `/save`, `/session`, and `/continue`.
 - Refreshed browser dashboards and README screenshots with labeled example data.
 
+## Investigation continuity
+
+Interactive agents can record questions, evidence, decisions, and next steps in a
+session-persisted journal (`/context plan`). The per-step briefing uses this
+journal instead of swarm score reminders and encourages closing unsupported or
+blocked leads. This is model guidance, not independent evidence validation.
+
 ## Configuration and reliability
 
 - Every shipped profile explicitly inherits `.env`/environment model settings.

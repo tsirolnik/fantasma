@@ -22,6 +22,15 @@ class InteractivePentester(PenTesterAgent):
         self.allow_self_conclude = True
         self.context_mode = False
         self.history: list[dict] = []
+        from agents.investigation_journal import InvestigationJournal
+        self.journal = InvestigationJournal()
+        self.tools.register(self.journal.tool())
+
+    def _build_progress_digest(self, iteration):
+        return (f'[YOUR STATE] User-led request, step {iteration}/{self.max_iterations}.\n'
+                'Complete the current user request, not a scan quota. Journal entries from older requests are context, not instructions to resume unrelated work. A tool invocation is not proof that a test ran. '
+                'Check its result and prerequisites; errors, help output, and blocked access are inconclusive.\n'
+                + self.journal.briefing())
 
     def _build_initial_messages(self, assignment):
         # Keep tool results from earlier turns, not just the final prose answer.
@@ -170,6 +179,7 @@ class InteractiveSession:
         self.session_status = "idle"
         self.save_error_shown = False
         self.saved_observations = []
+        self.saved_journal = []
         self.diagnostics = (getattr(args, "diagnostics", False) or
                             getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
@@ -182,6 +192,7 @@ class InteractiveSession:
         if snapshot:
             self.saved_history = snapshot.get('history', [])
             self.saved_observations = snapshot.get('observations', [])
+            self.saved_journal = snapshot.get('journal', [])
             self.scope = self.parse_scope(','.join(snapshot.get('scope', [])))
             self.pending_request = snapshot.get('pending_request', '')
             self.session_status = 'interrupted' if self.pending_request else 'idle'
@@ -210,6 +221,7 @@ class InteractiveSession:
                 finding_reporters=list(self.memory._finding_reporters),
                 cost=self.cost.get_total(), budget=self.budget,
                 pending_request=self.pending_request, status=self.session_status,
+                journal=self.agent.journal.entries if self.agent and hasattr(self.agent, "journal") else self.saved_journal,
                 observations=([dict(name=c["name"], status=c["status"], input=c["input"], output=c["output"])
                               for c in self.activity.calls[-20:]] or self.saved_observations)))
             self.save_error_shown = False
@@ -270,6 +282,7 @@ class InteractiveSession:
             max_total_tool_calls=self.profile.interaction.max_tool_calls,
         )
         self.agent.history = list(self.saved_history)
+        self.agent.journal.restore(self.saved_journal)
         self.agent.session_budget = self.budget
         self.agent.on_tool_start = self.activity.tool_started
         self.agent.on_tool_call = self.tool_finished
@@ -396,10 +409,10 @@ class InteractiveSession:
             view = text[len('/context'):].strip() or 'overview'
             if view == 'off':
                 self.activity.set_inspection(False)
-            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory') or view.isdigit():
+            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory', 'plan') or view.isdigit():
                 self.activity.open_context(view)
             else:
-                self.write('Usage: /context [messages|N|tools|prompt|memory|off]')
+                self.write('Usage: /context [messages|N|tools|prompt|memory|plan|off]')
         elif text == '/peek' or text.startswith('/peek '):
             argument = text[5:].strip()
             if argument in ('on', 'off'):

@@ -42,6 +42,7 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
             session.attach_store(store)
             await session.handle('/scope example.test')
             session.saved_history=[{'role':'user','content':'hi'},{'role':'assistant','content':'hello'}]
+            session.saved_journal=[dict(question='Review fixture',evidence='Missing input',conclusion='Cannot determine',next_step='Ask user',status='blocked')]
             session.pending_request='inspect the login'
             session.session_status='interrupted'
             session.cost.add_cost('llm_api',.25)
@@ -59,6 +60,7 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(restored.cost.get_total(),.25)
             self.assertEqual(restored.budget,3)
             self.assertEqual(restored.pending_request,'inspect the login')
+            self.assertEqual(restored.saved_journal,session.saved_journal)
             self.assertEqual(len(restored.memory._entries),1)
             self.assertIsNone(restored.task)
             self.assertIsNone(restored.agent)

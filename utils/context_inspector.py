@@ -39,6 +39,9 @@ class ContextInspector:
         if view == 'prompt':
             return 'Current agent system instructions (also embedded in interactive requests)\n' + (
                 TerminalActivity.preview(agent.system_prompt) if agent and hasattr(agent, 'system_prompt') else 'Agent is not initialized. No prompt has been assembled.')
+        if view == 'plan':
+            journal = agent.journal.entries if agent and hasattr(agent, 'journal') else s.saved_journal
+            return 'Decision journal (agent-recorded observations, not independently verified)\n' + TerminalActivity.preview(journal)
         if view == 'memory':
             return 'Shared findings and recent notes (not necessarily all included in the last model request)\n' + TerminalActivity.preview({
                 'findings': [f.model_dump(mode='json') for f in s.memory.get_findings()],
@@ -56,5 +59,5 @@ class ContextInspector:
                 f'{len(messages)} messages · {chars:,} content characters · {len(self.tools)} tool schemas\n'
                 f'{s.memory.findings_count} findings · {len(s.memory._entries)} shared notes\n'
                 'Views: /context messages | /context N | /context tools\n'
-                '       /context prompt | /context memory\n'
+                '       /context prompt | /context memory | /context plan\n'
                 'Read-only previews; redacted and bounded. Not hidden model reasoning.')
