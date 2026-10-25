@@ -66,7 +66,19 @@ async def terminal_lines(session=None):
         from prompt_toolkit.patch_stdout import patch_stdout
         from prompt_toolkit.styles import Style
         from prompt_toolkit.key_binding import KeyBindings
+        from prompt_toolkit.filters import Condition
         keys = KeyBindings()
+        inspecting = Condition(lambda: bool(session and session.activity.expanded))
+        @keys.add('escape', filter=inspecting)
+        def close_inspector(event):
+            session.activity.set_inspection(False)
+        @keys.add('pagedown', filter=inspecting)
+        def scroll_inspector_down(event):
+            session.activity.inspect_offset += 8
+        @keys.add('pageup', filter=inspecting)
+        def scroll_inspector_up(event):
+            session.activity.inspect_offset = max(0, session.activity.inspect_offset - 8)
+
         @keys.add('c-o')
         def inspect_tools(event):
             if session:
@@ -77,6 +89,8 @@ async def terminal_lines(session=None):
             refresh_interval=0.1,
             style=Style.from_dict({"bottom-toolbar": "bg:#101b24 #78dcca"}),
         )
+        if session:
+            session.activity.live_inspector = True
         with patch_stdout(raw=True):
             while True:
                 try:
@@ -270,10 +284,13 @@ class InteractiveSession:
         elif text == '/peek' or text.startswith('/peek '):
             argument = text[5:].strip()
             if argument in ('on', 'off'):
-                self.activity.expanded = argument == 'on'
-                self.write(self.activity.peek())
+                self.activity.set_inspection(argument == 'on')
             elif not argument or argument.isdigit():
-                self.write(self.activity.peek(int(argument) if argument else None))
+                identifier = int(argument) if argument else None
+                if self.activity.live_inspector:
+                    self.activity.set_inspection(True, identifier)
+                else:
+                    self.write(self.activity.peek(identifier))
             else:
                 self.write('Usage: /peek [ID|on|off]')
         elif text == '/status':

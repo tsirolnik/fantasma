@@ -74,8 +74,13 @@ Inspect activity without enabling debug logs:
 
 - `/peek`: current phase, all running tool calls, and the five most recent completed calls.
 - `/peek 3`: inputs, result/error, status, and timing for call #3.
-- `Ctrl+O`: toggle live expanded tool details, preserving your input draft.
+- `Ctrl+O`: open/close the live inspector panel, preserving your input draft.
+  Escape or `/peek off` also closes it. PgUp/PgDn scroll the panel.
 - `/peek on` or `/peek off`: explicitly enable or disable live details.
+
+In a terminal, `/peek` and `/peek ID` open the same collapsible panel. Details
+are rendered in place rather than appended to scrollback. Plain/piped sessions
+print snapshots; closing inspection stops expanded output without reprinting it.
 
 The inspector retains recent calls in memory (up to 100 completed calls plus
 active calls). Each input/result preview is capped at 4,000 characters. Common

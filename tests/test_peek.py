@@ -32,6 +32,24 @@ class PeekTests(unittest.TestCase):
             self.assertNotIn(secret, preview)
         self.assertLess(len(TerminalActivity.preview('x'*10000)), 4050)
 
+    def test_live_inspector_closes_without_dumping_details(self):
+        output=[]
+        activity=TerminalActivity(output.append)
+        activity.live_inspector=True
+        activity.tool_started('p','example',{'detail':'only in panel'})
+        output.clear()
+        activity.toggle()
+        self.assertIn('only in panel',activity.toolbar())
+        activity.toggle()
+        self.assertNotIn('only in panel',activity.toolbar())
+        self.assertEqual(output,[])
+
+    def test_plain_output_close_is_only_a_confirmation(self):
+        output=[]
+        activity=TerminalActivity(output.append)
+        activity.set_inspection(False)
+        self.assertEqual(output,['Inspector closed. Compact tool output restored.'])
+
     def test_expanded_output_is_opt_in(self):
         out=[]
         activity=TerminalActivity(out.append)
@@ -83,6 +101,26 @@ class PeekCommandTests(unittest.IsolatedAsyncioTestCase):
                         break
                     await asyncio.sleep(.01)
                 self.assertTrue(activity.expanded)
+                self.assertEqual(made[0].default_buffer.text,'my draft')
+                keyboard.send_text('\x0f')
+                for _ in range(100):
+                    if not activity.expanded:
+                        break
+                    await asyncio.sleep(.01)
+                self.assertFalse(activity.expanded)
+                self.assertEqual(made[0].default_buffer.text,'my draft')
+                keyboard.send_text('\x0f')
+                for _ in range(100):
+                    if activity.expanded:
+                        break
+                    await asyncio.sleep(.01)
+                self.assertTrue(activity.expanded)
+                keyboard.send_text('\x1b')
+                for _ in range(200):
+                    if not activity.expanded:
+                        break
+                    await asyncio.sleep(.01)
+                self.assertFalse(activity.expanded)
                 self.assertEqual(made[0].default_buffer.text,'my draft')
                 keyboard.send_text('\n')
                 self.assertEqual(await asyncio.wait_for(task,2),'my draft')

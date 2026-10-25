@@ -41,6 +41,9 @@ class TerminalActivity:
         self.calls = []
         self.next_id = 1
         self.expanded = False
+        self.live_inspector = False
+        self.inspected_id = None
+        self.inspect_offset = 0
         self.phase = "Idle"
 
     def begin(self):
@@ -57,7 +60,7 @@ class TerminalActivity:
                 call["status"] = "interrupted"
                 call["duration"] = time.monotonic() - call["started"]
 
-    def toolbar(self):
+    def status_line(self):
         if self.started is None:
             return ' 👻 Ready · Ctrl+O / /peek to inspect'
         elapsed = max(0, time.monotonic() - self.started)
@@ -68,6 +71,26 @@ class TerminalActivity:
         else:
             action = VERBS[int(elapsed // 4) % len(VERBS)] + '…'
         return f' {frame} 👻 {action} · {elapsed:.0f}s · Ctrl+O inspect · /stop'
+
+    def toolbar(self):
+        status = self.status_line()
+        if not (self.expanded and self.live_inspector):
+            return status
+        import shutil
+        size = shutil.get_terminal_size((80, 24))
+        height = max(1, min(12, size.lines - 5))
+        lines = self.peek(self.inspected_id).splitlines()
+        self.inspect_offset = min(self.inspect_offset, max(0, len(lines) - height))
+        visible = lines[self.inspect_offset:self.inspect_offset + height]
+        panel = [line[:max(1, size.columns - 1)] for line in visible]
+        return status + '\n Ctrl+O / Esc: close · PgUp/PgDn: scroll\n' + '\n'.join(panel)
+
+    def set_inspection(self, enabled, identifier=None):
+        self.expanded = enabled
+        self.inspected_id = identifier
+        self.inspect_offset = 0
+        if not self.live_inspector:
+            self.write(self.peek(identifier) if enabled else 'Inspector closed. Compact tool output restored.')
 
     def tool_started(self, agent, name, params):
         name = clean_label(name)
@@ -81,7 +104,7 @@ class TerminalActivity:
         # Keep running calls, plus the most recent completed calls.
         completed = [c for c in self.calls if c["status"] != "running"][-100:]
         self.calls = sorted(completed + [c for c in self.calls if c["status"] == "running"], key=lambda c: c["id"])
-        if self.expanded:
+        if self.expanded and not self.live_inspector:
             self.write(self.format_call(self.calls[-1]))
         self.write(f'  ↳ #{self.calls[-1]["id"]} {tool_label(name, params)}')
 
@@ -98,7 +121,7 @@ class TerminalActivity:
                      output=self.preview(call.error if call.error else call.output))
         self.tools = Counter(c["name"] for c in self.calls if c["status"] == "running")
         self.write(f'  {icon} #{entry["id"]} {name} · {result} · {call.duration_ms / 1000:.1f}s')
-        if self.expanded:
+        if self.expanded and not self.live_inspector:
             self.write(self.format_call(entry))
         if not self.tools:
             self.phase = "Processing tool results"
@@ -144,8 +167,7 @@ class TerminalActivity:
         return heading + '\n' + ('\n\n'.join(self.format_call(c) for c in calls) if calls else 'No tool calls yet.')
 
     def toggle(self):
-        self.expanded = not self.expanded
-        self.write(self.peek())
+        self.set_inspection(not self.expanded)
 
     def llm_started(self, agent, model, messages, tools):
         self.phase = f'Waiting for model {clean_label(model)} ({messages} messages, {tools} tools available)'
