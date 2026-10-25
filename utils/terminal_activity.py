@@ -42,6 +42,9 @@ class TerminalActivity:
         self.next_id = 1
         self.expanded = False
         self.live_inspector = False
+        self.inspector_kind = "tools"
+        self.context_view = "overview"
+        self.context_reader = None
         self.inspected_id = None
         self.inspect_offset = 0
         self.follow_tail = True
@@ -64,7 +67,7 @@ class TerminalActivity:
 
     def status_line(self):
         if self.started is None:
-            return ' 👻 Ready · Ctrl+O / /peek to inspect'
+            return ' 👻 Ready  ·  Ctrl+O tools  ·  Ctrl+G context'
         elapsed = max(0, time.monotonic() - self.started)
         frame = FRAMES[int(elapsed * 10) % len(FRAMES)]
         if self.tools:
@@ -82,7 +85,8 @@ class TerminalActivity:
         import textwrap
         size = shutil.get_terminal_size((80, 24))
         height = max(1, min(12, size.lines - 5))
-        lines = [wrapped for line in self.peek(self.inspected_id).splitlines()
+        content = self.context_reader(self.context_view) if self.inspector_kind == "context" and self.context_reader else self.peek(self.inspected_id)
+        lines = [wrapped for line in content.splitlines()
                  for wrapped in (textwrap.wrap(line, width=max(1, size.columns - 1),
                                  replace_whitespace=False, drop_whitespace=False) or [''])]
         self.inspect_max_offset = max(0, len(lines) - height)
@@ -93,10 +97,13 @@ class TerminalActivity:
         visible = lines[self.inspect_offset:self.inspect_offset + height]
         panel = [line[:max(1, size.columns - 1)] for line in visible]
         position = 'following tail' if self.follow_tail else 'scrolled; End to follow'
-        return status + f'\n Ctrl+O / Esc: close · PgUp/PgDn: scroll · {position}\n' + '\n'.join(panel)
+        if self.inspector_kind == 'context':
+            position = f'lines {self.inspect_offset + 1}–{min(len(lines), self.inspect_offset + height)}/{len(lines)}'
+        return status + f'\n {self.inspector_kind.upper()}  ─  Esc close · PgUp/PgDn scroll · {position}\n' + '\n'.join(panel)
 
     def set_inspection(self, enabled, identifier=None):
         self.expanded = enabled
+        self.inspector_kind = "tools"
         self.inspected_id = identifier
         self.inspect_offset = 0
         self.follow_tail = True
@@ -189,7 +196,29 @@ class TerminalActivity:
         return heading + '\n' + ('\n\n'.join(self.format_call(c) for c in calls) if calls else 'No tool calls yet.')
 
     def toggle(self):
-        self.set_inspection(not self.expanded)
+        self.set_inspection(not (self.expanded and self.inspector_kind == 'tools'))
+
+    def open_context(self, view='overview', toggle=False):
+        if toggle and self.expanded and self.inspector_kind == 'context':
+            self.set_inspection(False)
+            return
+        self.inspector_kind = 'context'
+        self.context_view = view
+        self.expanded = True
+        self.inspect_offset = 0
+        self.follow_tail = False
+        if not self.live_inspector and self.context_reader:
+            self.write(self.context_reader(view))
+
+    def formatted_toolbar(self):
+        lines = self.toolbar().splitlines()
+        parts = []
+        for index, line in enumerate(lines):
+            style = 'class:activity' if index == 0 else 'class:panel-title' if index == 1 else 'class:panel-body'
+            if index:
+                parts.append(('', '\n'))
+            parts.append((style, line))
+        return parts
 
     def llm_started(self, agent, model, messages, tools):
         self.phase = f'Waiting for model {clean_label(model)} ({messages} messages, {tools} tools available)'

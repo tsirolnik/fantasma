@@ -33,6 +33,29 @@ There is one pentester in this conversational implementation. It uses the
 the cost budget applies across the session. No model or browser is created until
 your first plain-text request. Controls such as `/status` do not call a model.
 
+## Inspecting context
+
+Ctrl+G opens/closes the read-only context panel. Escape closes either inspector;
+Ctrl+O switches to tool activity. Context opens at the top; PgUp/PgDn scroll it.
+
+| Command | View |
+| --- | --- |
+| `/context` | Model, profile, scope, spend, message character counts, and tool count |
+| `/context messages` | Roles and previews of messages from the last assembled request |
+| `/context N` | Message N, numbered from 1 |
+| `/context tools` | Tool schemas from the last assembled request |
+| `/context prompt` | Current agent system instructions |
+| `/context memory` | Shared findings and recent notes; not necessarily all sent to the model |
+| `/context off` | Close inspection |
+
+Before a model call, the conversation view shows saved history. After a call is
+assembled, it shows a captured preview of those messages and tool schemas before
+provider-specific normalization. It does not read configured provider credentials or expose hidden reasoning or
+a live server-side context window. Conversation content may still be sensitive. Character counts refer to
+message content, not exact tokens. Previews use the same redaction and size bounds
+as tool inspection and do not cause model calls. Capture previews are in memory;
+a resumed session starts with its saved conversation until the next request.
+
 ## Saved sessions
 
 Interactive CLI sessions are automatically saved under `data/sessions/` in the
@@ -177,6 +200,7 @@ Recognized network-capable tools are blocked until scope is configured.
 | `/status` | Shows scope, estimated spend and finding count |
 | `/steer TEXT` | Queues guidance while busy; starts a request if idle |
 | `/interrupt TEXT` | Cancels current work, waits for cleanup, then starts the replacement |
+| `/context [VIEW]`, Ctrl+G | Inspect conversation, model input, instructions, tools and shared memory |
 | `/peek [ID]` | Opens the tool inspector; selects a call by ID |
 | `Ctrl+O`, `Escape`, `/peek off` | Toggle inspection / close it / close it |
 | `/peek on`, PgUp/PgDn | Enable inspection / scroll terminal details |

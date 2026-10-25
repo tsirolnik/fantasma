@@ -61,6 +61,7 @@ fantasma full --resume-session        # Reopen the latest; waits for input
 | `/interrupt TEXT` | Cancel the current request, then start a replacement |
 | `/stop` / `/continue` | Stop work / restart an interrupted request with saved context |
 | `Ctrl+O` or `/peek` | Inspect tool inputs, results, errors, and timing |
+| `Ctrl+G` or `/context` | Inspect model input, conversation, instructions, and shared memory |
 | `Escape` or `/peek off` | Close the inspector |
 | `/save`, `/session`, `/quit` | Save, show the session ID, or save and exit |
 

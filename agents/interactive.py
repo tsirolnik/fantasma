@@ -10,7 +10,7 @@ import sys
 from agents.messaging import MessageBus, TaskAssignment
 from agents.pentester import PenTesterAgent
 from agents.llm_config import create_llm_for_agent
-from utils.terminal_markdown import MarkdownMessage, terminal_write
+from utils.terminal_markdown import MarkdownMessage, TerminalBanner, terminal_write
 from config import get_settings
 from cost.tracker import CostTracker
 from memory.shared import SharedMemory
@@ -52,6 +52,7 @@ HELP = """Enter a question or investigation request. No work starts until you se
 /continue          Continue the last interrupted request
 /scope HOST[,HOST]  Set authorized hosts (only while idle)
 /status            Show scope, spend and finding count
+/context [VIEW]    Inspect model input, prompt, tools, and shared memory (Ctrl+G)
 /peek [ID|on|off]  Inspect tool inputs/results; Ctrl+O toggles live details
 /steer TEXT        Queue guidance for the next model step
 /interrupt TEXT    Cancel current work, then start the replacement request
@@ -86,22 +87,33 @@ async def terminal_lines(session=None):
         def follow_inspector_tail(event):
             session.activity.follow_tail = True
 
+        @keys.add('c-g')
+        def inspect_context(event):
+            if session:
+                session.activity.open_context(toggle=True)
+
         @keys.add('c-o')
         def inspect_tools(event):
             if session:
                 session.activity.toggle()
         prompt = PromptSession(
             key_bindings=keys,
-            bottom_toolbar=session.activity.toolbar if session else None,
+            bottom_toolbar=session.activity.formatted_toolbar if session else None,
             refresh_interval=0.1,
-            style=Style.from_dict({"bottom-toolbar": "bg:#101b24 #78dcca"}),
+            style=Style.from_dict({
+                "bottom-toolbar": "bg:#101820 #adbac7 noreverse",
+                "activity": "bg:#101820 #78dcca",
+                "panel-title": "bg:#20313b #78dcca bold",
+                "panel-body": "bg:#101820 #d5dde5",
+                "prompt": "#78dcca bold",
+            }),
         )
         if session:
             session.activity.live_inspector = True
         with patch_stdout(raw=True):
             while True:
                 try:
-                    yield await prompt.prompt_async('you> ')
+                    yield await prompt.prompt_async([('class:prompt', 'you › ')])
                 except EOFError:
                     return
                 except KeyboardInterrupt:
@@ -146,6 +158,9 @@ class InteractiveSession:
         self.task = None
         from utils.terminal_activity import TerminalActivity
         self.activity = TerminalActivity(lambda text: self.write(text))
+        from utils.context_inspector import ContextInspector
+        self.context_inspector = ContextInspector(self)
+        self.activity.context_reader = self.context_inspector.render
         self.live_terminal = False
         self.pending_steering = []
         self.store = None
@@ -258,6 +273,7 @@ class InteractiveSession:
         self.agent.session_budget = self.budget
         self.agent.on_tool_start = self.activity.tool_started
         self.agent.on_tool_call = self.tool_finished
+        self.agent.on_context_snapshot = self.context_inspector.capture
         self.agent.on_llm_start = self.activity.llm_started
         self.agent.on_llm_call = self.model_finished
         self.set_scope(self.scope)
@@ -376,6 +392,14 @@ class InteractiveSession:
                 self.write('No interrupted request. Send a new instruction to continue the conversation.')
         elif text == '/help':
             self.write(HELP)
+        elif text == '/context' or text.startswith('/context '):
+            view = text[len('/context'):].strip() or 'overview'
+            if view == 'off':
+                self.activity.set_inspection(False)
+            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory') or view.isdigit():
+                self.activity.open_context(view)
+            else:
+                self.write('Usage: /context [messages|N|tools|prompt|memory|off]')
         elif text == '/peek' or text.startswith('/peek '):
             argument = text[5:].strip()
             if argument in ('on', 'off'):
@@ -414,7 +438,12 @@ class InteractiveSession:
             if self.pending_request:
                 self.write('An interrupted request is saved. Use /continue or send a new instruction; no work resumes automatically.')
         cfg = self.llm_config.get_config('scanner')
-        self.write(f'Interactive profile: {self.profile.name}\nModel provider: {cfg.provider} ({cfg.model or "configured default model"})\n{HELP}')
+        self.write(TerminalBanner(
+            f'Profile  {self.profile.name}\n'
+            f'Model    {cfg.provider} / {cfg.model or getattr(get_settings(), cfg.provider + "_model", "provider default")}\n'
+            f'Scope    {", ".join(self.scope) or "not set — use /scope HOST"}\n\n'
+            'Ctrl+O tools   Ctrl+G context   /steer guide   /stop cancel\n'
+            '/help all commands · Send a request when ready.'))
         try:
             async for line in lines:
                 if not await self.handle(line):

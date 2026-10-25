@@ -105,6 +105,7 @@ class ToolAgent(BaseAgent):
         self._last_trace: AgentTrace | None = None
         self.on_tool_call: Callable[[ToolCall], None] | None = None
         self.on_tool_start: Callable | None = None  # (name, tool_name, tool_input)
+        self.on_context_snapshot: Callable | None = None  # (messages, tool_schemas)
         self.on_llm_start: Callable | None = None  # (name, model, messages_count, tools_count)
         self.on_llm_call: Callable | None = None
         self.on_llm_exchange: Callable | None = None  # (name, model, messages, response, duration_ms)
@@ -431,6 +432,11 @@ class ToolAgent(BaseAgent):
                 "%s: LLM call #%d — %d msgs, ~%dK chars, model=%s",
                 self.name, iteration + 1, len(messages), _ctx_chars // 1000, _model_name,
             )
+            if self.on_context_snapshot is not None:
+                try:
+                    self.on_context_snapshot(messages, tool_schemas)
+                except Exception:
+                    logger.exception("Context inspection callback failed")
             if self.on_llm_start is not None:
                 try:
                     self.on_llm_start(self.name, str(_model_name), len(messages), len(tool_schemas))

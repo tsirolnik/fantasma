@@ -8,6 +8,8 @@ v0.1.0 tag and release archives have not been rebuilt with them.
 - Quiet console output with persistent diagnostic logs; enable console diagnostics
   using `full --diagnostics` or `[interaction] diagnostics = true`.
 - Markdown replies, animated activity status, and concise tool progress.
+- A context inspector for assembled model input, instructions, tools and shared memory.
+  Ctrl+G toggles it; `/context` selects detailed views.
 - A collapsible tool inspector: Ctrl+O toggles, Escape closes, PgUp/PgDn scroll.
   `/peek ID` selects a specific call; `/peek off` closes the panel.
 - `/steer` queues guidance, `/interrupt` cancels and replaces a request, and
