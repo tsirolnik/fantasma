@@ -108,6 +108,10 @@ It consumes methodology, mechanisms and interaction limits, and takes scope from
 
 ## Runtime paths
 
+`FANTASMA_SESSIONS_DIR`, exported in the process environment, selects the
+interactive snapshot directory (default `./data/sessions`). It is independent of
+swarm/lab checkpoints.
+
 `FANTASMA_DB_PATH` selects the SQLite database (default `./data/memory.db`).
 `FANTASMA_TOOL_NETWORK` and `FANTASMA_TOOL_HOST_REWRITE` configure benchmark
 tool networking. Profiles, `.env`, and stored data remain in their existing locations.

@@ -8,7 +8,10 @@ relevant; it is not a promise that every profile field applies to every engine.
 ## Learn and run
 
 Start with the [interactive pentester](interactive.md), the default user-led terminal
-session. Batch swarm and lab workflows are explicit profile choices.
+session with Markdown replies, tool inspection, steering and saved sessions.
+See [session resume](interactive.md#saved-sessions) and
+[steering and interruption](interactive.md#steering-and-interruption).
+Batch swarm and lab workflows are explicit profile choices.
 
 1. [Setup and first custom mechanism](getting-started.md) — install dependencies,
    copy an extension outside the repo, test without model calls, then run it.
@@ -42,6 +45,11 @@ session. Batch swarm and lab workflows are explicit profile choices.
 | [competitive.toml](../profiles/competitive.toml) | Multiple teams and incentives |
 | [redteam.toml](../profiles/redteam.toml) | Direct targets and a different system methodology |
 | [Methodology and tool examples](reference/extensions.md) | Implement other Python extension points |
+
+## Changes after v0.1.0
+
+See [unreleased changes](releases/unreleased.md) for features on `main` that are
+not in the original v0.1.0 release artifacts.
 
 ## Maintaining the references
 

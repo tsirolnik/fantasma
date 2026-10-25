@@ -2,15 +2,14 @@
 
 **A composable multi-agent framework for authorized security research.**
 
-fantasma runs LLM-driven investigators against a shared scope. A run can use
-one team or several teams, different models by role, configurable scoring, and
-optional incentive mechanisms. Workers choose tools from the evidence they
-collect; a Director reviews progress and can redirect them.
+Fantasma starts as an interactive security research workspace: set scope, ask an
+investigator to work, inspect its tools, and steer or stop it. Conversations and
+findings save locally so you can return to a session later.
 
-The built-in workflows cover web application security research and bug-bounty
-program discovery. Profiles let you change the target source, investigation
-methodology, coordination rules, models, and team structure without changing the
-orchestration code.
+Choose a swarm profile to coordinate multiple investigators with shared context
+and Director oversight, or a lab profile for sequential stages. Profiles and
+Python extensions define methodology, model selection, coordination, and incentive
+mechanisms. MCP connects additional tools; browser tools are available independently.
 
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
@@ -47,6 +46,29 @@ request and retains conversation context; it does not launch an unattended scan.
 Sessions autosave locally. Use `fantasma sessions` to list them and
 `fantasma full --resume-session ID` to reopen one. In a session, `/stop` cancels
 work and `/continue` restarts an interrupted request with saved context.
+
+```bash
+fantasma                              # New interactive session
+fantasma full --web                   # Add the browser companion
+fantasma sessions                    # List saved sessions
+fantasma full --resume-session        # Reopen the latest; waits for input
+```
+
+| During a session | Action |
+| --- | --- |
+| `/scope example.test` | Set the hosts you are authorized to test |
+| `/steer TEXT` or plain text while busy | Guide the next model step; current tools continue |
+| `/interrupt TEXT` | Cancel the current request, then start a replacement |
+| `/stop` / `/continue` | Stop work / restart an interrupted request with saved context |
+| `Ctrl+O` or `/peek` | Inspect tool inputs, results, errors, and timing |
+| `Escape` or `/peek off` | Close the inspector |
+| `/save`, `/session`, `/quit` | Save, show the session ID, or save and exit |
+
+Terminal replies render Markdown. A live status bar shows progress; diagnostics
+stay in log files unless you use `fantasma full --diagnostics`. Saved sessions
+restore conversation and evidence, not running tools or browser sessions.
+See the [interactive guide](docs/interactive.md) for controls, persistence limits,
+and provider setup.
 
 ## What is configurable?
 
@@ -147,7 +169,8 @@ CLI, settings, extension API, runtime, data-model and dashboard references.
 
 ## Install
 
-Requirements: Python 3.13+, Docker with Compose, and a configured LLM provider.
+Supported terminal platforms: macOS and Linux, with Python 3.13+. Model requests
+require a configured provider. Docker with Compose is needed for container tools.
 Playwright supplies the browser used by browser tools.
 
 ```bash
@@ -157,7 +180,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 playwright install chromium
-cp .env.example .env
+test -f .env || cp .env.example .env
 docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
 ```
 
@@ -167,6 +190,8 @@ an interactive session. `fantasma profiles inspect interactive` inspects a
 profile without model calls. The `python main.py` entry point also remains supported.
 
 This is a source installation; a PyPI release has not been published.
+The original v0.1.0 archives predate the latest interactive features; see
+[changes on main](docs/releases/unreleased.md).
 
 Edit `.env` before running. The example below uses Claude for all agent roles:
 set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.

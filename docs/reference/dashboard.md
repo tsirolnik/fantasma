@@ -33,7 +33,10 @@ the same authentication middleware. Its companion page supports `GET /api/status
 (scope, running state, cost, findings count, recent output), `GET /api/profile`,
 and `POST /api/message` with JSON `{"text": "..."}`. Messages use the same
 session handler as terminal input. `/quit` stays terminal-only; `/stop` works
-from either interface. The browser remains available while the terminal session
+from either interface. `/steer`, `/interrupt`, `/continue`, `/save`, and `/session`
+use the same session handler. Collapsible inspection and Markdown rendering are
+terminal features; the browser activity feed renders plain text. Session snapshots
+restore the agent context, not the browser feed. The browser remains available while the terminal session
 is open. The pipeline routes below apply to swarm and lab.
 
 ## Routes

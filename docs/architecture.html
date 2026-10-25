@@ -51,7 +51,7 @@ sections afterward describe the batch swarm engine.
 ```mermaid
 flowchart LR
     PROFILE["interactive.toml<br/>Methodology, model, mechanisms, request limits"] --> SESSION["Terminal session"]
-    USER["User prompt / redirect / stop"] --> SESSION
+    USER["User prompt / steer / interrupt / stop"] --> SESSION
     WEB["Optional authenticated web companion"] --> SESSION
     SESSION --> WEB
     SESSION --> AGENT["Pentester tool loop<br/>May answer directly and finish"]
@@ -62,7 +62,13 @@ flowchart LR
     TOOLS --> MCP
     MCP --> TOOLS
     TOOLS --> AGENT
-    AGENT --> HISTORY["Conversation + shared memory<br/>In-session state"]
+    ENV[".env + process environment<br/>Provider and model defaults"] --> PROFILE
+    AGENT --> HISTORY["Conversation + shared memory"]
+    HISTORY --> SAVE["Atomic session snapshots<br/>History, scope, findings, cost, pending request"]
+    SAVE --> RESUME["Resume by ID or latest<br/>Restore context; wait for user"]
+    RESUME --> SESSION
+    AGENT -. "Model and tool callbacks" .-> INSPECT["Status bar + collapsible tool inspector"]
+    INSPECT --> USER
     HISTORY --> AGENT
     AGENT --> ANSWER["Answer, then wait for user"]
     ANSWER --> SESSION

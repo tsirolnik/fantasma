@@ -172,6 +172,13 @@ Recognized network-capable tools are blocked until scope is configured.
 | Plain text while working | Queues a redirect for a subsequent model call; does not interrupt the current tool |
 | `/scope HOST[,HOST]` | Changes scope while idle; `/scope` alone clears it |
 | `/status` | Shows scope, estimated spend and finding count |
+| `/steer TEXT` | Queues guidance while busy; starts a request if idle |
+| `/interrupt TEXT` | Cancels current work, waits for cleanup, then starts the replacement |
+| `/peek [ID]` | Opens the tool inspector; selects a call by ID |
+| `Ctrl+O`, `Escape`, `/peek off` | Toggle inspection / close it / close it |
+| `/peek on`, PgUp/PgDn | Enable inspection / scroll terminal details |
+| `/save`, `/session` | Save immediately / show the session ID and resume command |
+| `/continue` | Restart an interrupted request with saved context; waits if work is running |
 | `/stop` | Cancels active work, clears queued redirects and returns to the session |
 | `/quit` or `/exit` | Cancels work and closes the browser/session |
 | `/help` | Prints commands |
@@ -183,9 +190,9 @@ results for follow-up questions; existing context compression may summarize olde
 material. A cancelled/failed turn is not committed to conversation history, but
 shared-memory changes and completed external actions are not rolled back.
 
-The current reader uses asyncio terminal file-descriptor support on macOS/Linux.
-This is a basic text console, not feature parity with Claude Code or Codex: no
-full-screen UI, token streaming, or multi-pentester chat routing. Tools are
+The terminal uses prompt-toolkit on macOS/Linux, with asyncio file-descriptor
+input for plain/piped sessions. Token streaming and multi-pentester chat routing
+are not implemented. Tools are
 announced by name, an inspector shows their details, and replies render Markdown.
 Local session snapshots support conversation resume.
 

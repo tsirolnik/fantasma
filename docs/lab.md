@@ -30,11 +30,8 @@ stages = ["scan"]
 worker_mode = "auto"
 max_scan_targets = 10
 
-[llm.director]
-provider = "claude"
-
-[llm.default_worker]
-provider = "claude"
+[llm]
+source = "env"
 ```
 
 Save as `my-lab.toml`, inspect it, then pass `--profile my-lab.toml`. Profiles do

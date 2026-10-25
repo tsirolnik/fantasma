@@ -17,8 +17,9 @@ source .venv/bin/activate
 python -m pip install -e .
 ```
 
-On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell. The remaining
-shell examples use Bash/zsh. In a new terminal, activate the environment again.
+The interactive runtime currently targets macOS/Linux (terminal input and session
+locking use POSIX APIs). These examples use Bash/zsh. In a new terminal, activate
+the environment again.
 
 The installation adds `fantasma` to the active environment. Check it with
 `fantasma --version` and `fantasma --help`. Bare `fantasma` opens the
@@ -35,6 +36,46 @@ fantasma profiles inspect examples/mechanisms/profile.toml
 The inspector prints JSON with resolved profile values, active mechanisms and
 hook names. It does not start an investigation. It imports and constructs
 extensions, so use profiles you trust.
+
+## First interactive session
+
+If you want to use the investigator before writing an extension:
+
+```bash
+test -f .env || cp .env.example .env
+python -m playwright install chromium
+docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
+```
+
+Configure your provider in `.env`. All shipped profiles explicitly inherit it.
+For Claude, set `LLM_PROVIDER=claude`, `ANTHROPIC_API_KEY`, and `CLAUDE_MODEL`.
+For Novita or another OpenAI-compatible endpoint, set `LLM_PROVIDER=openai`,
+`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and the input/output prices
+from your provider. Leave `DIRECTOR_LLM_PROVIDER`, `WORKER_LLM_PROVIDER`,
+`DIRECTOR_LLM_MODEL`, and `WORKER_LLM_MODEL` empty unless you intend role overrides.
+A stale role-model override takes precedence over `OPENAI_MODEL`.
+Set `FALKORDB_ENABLED=false` if you do not want the optional graph service.
+
+```bash
+fantasma profiles inspect interactive  # Inspect resolved role providers/models
+fantasma full --dry-run                # Try /status and /quit; no model calls
+fantasma                              # Start an actual interactive session
+```
+
+Set `/scope YOUR_AUTHORIZED_HOST`, then send a request. Ctrl+O opens/closes the
+tool inspector. `/steer TEXT` queues guidance; `/interrupt TEXT` replaces the
+active request after cancellation. `/stop` cancels and `/continue` restarts with
+saved context. `/quit` saves and exits.
+
+```bash
+fantasma sessions
+fantasma full --resume-session         # Latest session; waits for your input
+fantasma full --resume-session ID      # A specific session
+```
+
+Read the [interactive guide](interactive.md) for the complete controls and save
+behavior. The remaining walkthrough covers custom mechanisms; you do not need a
+custom mechanism to start an interactive session.
 
 ## 2. Keep your extension outside the repository
 

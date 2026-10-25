@@ -7,9 +7,12 @@ Return to the [documentation index](../README.md).
 ## Interactive default
 
 The default [terminal session](../interactive.md) constructs a pentester lazily
-on the first user request. It has conversation history and in-session shared
-memory, with no Director, validator or automatic scan. `/stop` cancels active
-work; completed actions are not rolled back. The sections below describe the
+on the first user request. It has conversation history and shared memory, with
+no Director, validator or automatic scan. Interactive snapshots retain completed
+conversation history, scope, findings, notes, budget, and recorded spend.
+`/stop` cancels active work; `/continue` restarts an interrupted request with saved
+context. Completed actions are not rolled back. See [saved sessions](../interactive.md#saved-sessions)
+for recovery boundaries. The sections below describe the
 explicit batch/swarm path rather than that interactive lifecycle.
 
 ## Assembly and ownership
@@ -106,6 +109,7 @@ execute once per mechanism name across team memories; order can affect scores.
 
 | Store | Contents | Location / lifetime |
 | --- | --- | --- |
+| Interactive sessions | Conversation, scope, shared-memory snapshot, pending request, tool previews, cost and budget | Atomic JSON in `data/sessions/`, or exported `FANTASMA_SESSIONS_DIR`; one writer per session |
 | SharedMemory | Feed, claims, finding objects, score events | In process, one per team |
 | Mechanism instance | Custom counters/timers/sets | In process; not serialized by checkpoint capture |
 | SQLite | Programs, findings, scans, costs, key/value state | `./data/memory.db`, or `FANTASMA_DB_PATH` |
