@@ -60,16 +60,24 @@ fantasma full --resume-session        # Reopen the latest; waits for input
 | `/steer TEXT` or plain text while busy | Guide the next model step; current tools continue |
 | `/interrupt TEXT` | Cancel the current request, then start a replacement |
 | `/stop` / `/continue` | Stop work / restart an interrupted request with saved context |
-| `Ctrl+O` or `/peek` | Inspect tool inputs, results, errors, and timing |
-| `Ctrl+G` or `/context` | Inspect model input, conversation, instructions, and shared memory |
+| `Ctrl+O` / F2 or `/peek` | Inspect tool inputs, results, errors, and timing |
+| `Ctrl+G` / F3 or `/context` | Inspect model input, conversation, instructions, and shared memory |
 | `Escape` or `/peek off` | Close the inspector |
 | `/save`, `/session`, `/quit` | Save, show the session ID, or save and exit |
+
+The interactive terminal uses a full-screen workspace with a scrollable conversation,
+a separate inspector, and multiline input directly beneath the latest message. Tab changes pane focus; Ctrl+J
+(or Alt+Enter) adds a newline; Ctrl+X interrupts and replaces work with your draft. See the
+[console controls](docs/interactive.md#full-screen-console) for navigation and shortcuts.
 
 Terminal replies render Markdown. A live status bar shows progress; diagnostics
 stay in log files unless you use `fantasma full --diagnostics`. Saved sessions
 restore conversation and evidence, not running tools or browser sessions.
 See the [interactive guide](docs/interactive.md) for controls, persistence limits,
 and provider setup.
+
+Public web search uses headless Chromium, with no search API key. See
+[browser search setup and limits](docs/interactive.md#browser-based-web-search).
 
 ## What is configurable?
 

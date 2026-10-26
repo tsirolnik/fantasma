@@ -76,6 +76,10 @@ class BrowserSession:
             "status": status,
         }
 
+    async def search(self, query, max_results=5):
+        from utils.browser_search import search
+        return await search(self._context, query, max_results)
+
     async def back(self) -> dict:
         page = await self._ensure_page()
         await page.go_back()

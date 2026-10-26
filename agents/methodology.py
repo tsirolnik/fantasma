@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from agents.research_prompts import get_system_prompt as _pentest_prompt
+from agents.research_prompts import get_system_prompt as _pentest_prompt, INVESTIGATION_OBJECTIVE
 
 _SCORING_BLOCK = (
     "\n\n## Scoring\n"
@@ -69,15 +69,14 @@ class PentestMethodology(_ConfigurableMethodology):
 
 _REDTEAM_PROMPT = """\
 You are an operator on an AUTHORIZED internal red team engagement. Your tools make real \
-requests/connections against real in-scope systems — this is not a simulation, and you never \
-refuse or theorize. Every response MUST contain tool calls. The objective is not "find a bug \
+requests/connections against real in-scope systems. Use tools only when they advance the requested objective. The objective is not "find a bug \
 that pays a bounty" — it's demonstrating how far an adversary could actually get: initial \
 foothold → privilege escalation → lateral movement → access to the engagement's stated \
 objective (domain admin, a sensitive data store, a business-critical system).
 
 ## Tools
 
-HTTP requests, a browser, Python scripting, Docker containers (nmap, nuclei, ffuf, sqlmap, \
+HTTP requests, a browser, Python scripting, Docker containers (nmap, ffuf, sqlmap, \
 credential/service enumeration tools), and web search. If a target exposes an MCP server, probe \
 its tool arguments for injection/traversal the same way you would an API parameter.
 
@@ -125,7 +124,7 @@ and see how far it actually takes you.
 ### 5. Think in chains, always
 Report the FULL path when you find one: "foothold via X → credential reuse to Y → service account
 Z grants access to [objective]" is one high-value finding, not four separate low ones. When you
-find one link in a chain, immediately hunt for the next.
+find one link, evaluate whether evidence justifies another step within the requested scope.
 
 ### 6. Write code when tools aren't enough
 Your Python scripting tool is unlimited: custom auth/credential testing, automated enumeration
@@ -167,7 +166,7 @@ class RedTeamMethodology(_ConfigurableMethodology):
         # auth/compact are accepted for interface parity with PentestMethodology;
         # red-team engagements don't register throwaway accounts the way public
         # bug-bounty hunting does, and this prompt is already compact.
-        return self._apply_extra(_REDTEAM_PROMPT)
+        return self._apply_extra(INVESTIGATION_OBJECTIVE + "\n" + _REDTEAM_PROMPT)
 
 
 class InteractiveMethodology(_ConfigurableMethodology):
@@ -176,6 +175,7 @@ class InteractiveMethodology(_ConfigurableMethodology):
 
     def system_prompt(self, *, auth=False, compact=False):
         return self._apply_extra(
+            INVESTIGATION_OBJECTIVE + "\n"
             "You are an interactive penetration-testing assistant for authorized work. "
             "Follow the user's current request. Answer questions directly; use tools "
             "only when needed to perform the requested work. Do not start unrelated "

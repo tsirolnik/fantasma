@@ -52,7 +52,7 @@ class TurnHookTests(unittest.IsolatedAsyncioTestCase):
                     _distilled=('', ''), in_scope=['authorized.test'],
                     out_of_scope=[], _allowed_domains=set(), cost_tracker=None,
                     session_budget=1, _last_results_text='',
-                    _findings_list=lambda: [], methodology=None,
+                    _findings_list=lambda: [], methodology=None, system_prompt="Fixture methodology",
                 )
                 agent._build_progress_digest = MethodType(ToolAgent._build_progress_digest, agent)
                 text = (await ToolAgent._assemble_turn_context(agent, 1) if rebuilt

@@ -12,6 +12,7 @@ import logging
 from typing import Any
 
 from agents.messaging import MessageBus, TaskAssignment
+from agents.research_prompts import INVESTIGATION_OBJECTIVE
 from agents.tool_agent import ToolAgent, ToolCall
 from agents.tools import (
     ToolRegistry,
@@ -106,7 +107,8 @@ class ScanToolWorker(ToolAgent):
 
     name = "scanner"
     capability = "adaptive vulnerability scanning"
-    system_prompt = (
+    system_prompt = (INVESTIGATION_OBJECTIVE + "\n"
+
         "You are a security researcher / ethical hacker on an authorized bug bounty team. "
         "Your job is to find REAL, EXPLOITABLE SECURITY VULNERABILITIES that can be "
         "reported to bug bounty programs for cash bounties.\n\n"
@@ -130,7 +132,6 @@ class ScanToolWorker(ToolAgent):
         "- regex_scan_url: Custom regex on any URL's content\n\n"
         "DOCKER TOOLS (via run_docker_tool with image='bugbounty-tools:latest'):\n"
         "- command='nmap -sV -sC target' — port/service scan\n"
-        "- command='nuclei -u https://target -severity medium,high,critical -jsonl -silent' — 8000+ vuln templates\n"
         "- command='ffuf -u https://target/FUZZ -w /usr/share/wordlists/dirb/common.txt -json -s' — dir fuzzing\n"
         "- command='katana -u https://target -d 3 -jc -jsonl -silent' — web crawling\n"
         "- command='nikto -h https://target -Format json' — web server scanner\n"
@@ -145,7 +146,7 @@ class ScanToolWorker(ToolAgent):
         "- command='commix -u \"https://target/page?cmd=test\" --batch' — command injection\n"
         "- Any Docker image: kali, alpine, debian, etc.\n\n"
         "BATCH SCANNERS:\n"
-        "- scan_js_secrets, scan_sensitive_paths, run_nuclei_templates_builtin\n"
+        "- scan_js_secrets, scan_sensitive_paths\n"
         "- scan_subdomain_takeover, scan_cors, scan_open_redirect\n\n"
         "BROWSER (for JS-rendered pages):\n"
         "- browser_navigate, browser_get_text, browser_click, browser_type\n"
@@ -155,16 +156,10 @@ class ScanToolWorker(ToolAgent):
         "- Recon data is already injected in RECON AGENT NOTES above — don't waste a tool call reading it\n"
         "- write_session_memory: Leave notes for the analyzer (what you tested, evidence quality)\n"
         "- read_session_memory: Only if you need to check notes from other agents\n\n"
-        "Strategy — think like a hacker, not a script:\n"
-        "0. FIRST: Review the RECON AGENT NOTES above — don't repeat work already done by recon\n"
-        "1. Fingerprint: extract_headers + run_docker_tool (nmap, openssl) to understand the target\n"
-        "2. Map: extract_links + extract_forms + extract_js_urls OR run_docker_tool (katana)\n"
-        "3. Hunt secrets: scan_js_secrets + regex_scan_url on discovered JS\n"
-        "4. Check exposure: check_sensitive_path for tech-relevant paths\n"
-        "5. Test injection: fuzz_parameter on forms/params you found\n"
-        "6. Deep scan: run_docker_tool (nuclei + ffuf) for thorough coverage\n"
-        "7. Verify: use http_probe / run_docker_tool (curl) to confirm and build evidence\n"
-        "8. IMPORTANT: Only report findings with security impact. Missing headers "
+        "Strategy: review existing evidence, select the highest-value supported hypothesis, "
+        "and use the smallest test that can resolve it. Verify impact before reporting. "
+        "Conclude when no useful evidence-supported action remains.\n"
+        "IMPORTANT: Only report findings with security impact. Missing headers "
         "alone are informational. Focus on issues that could let an attacker "
         "steal data, gain access, or cause damage.\n\n"
         "Output your findings as JSON:\n"

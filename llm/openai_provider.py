@@ -43,6 +43,8 @@ class OpenAICompatibleProvider(LLMProvider):
         # Novita/Moonshot bill cache reads at ~10% of the input rate.
         self.cache_discount = 0.10
 
+    supports_reasoning_history = True
+
     async def analyze(self, prompt: str, context: str = "") -> str:
         content = f"Context:\n{context}\n\n{prompt}" if context else prompt
         response = await self.client.chat.completions.create(
@@ -211,6 +213,10 @@ class OpenAICompatibleProvider(LLMProvider):
             },
         }
 
+        # Only replay a native API field, never synthesize it from inline <think> text.
+        if isinstance(getattr(msg, "reasoning_content", None), str):
+            result["reasoning_content"] = msg.reasoning_content
+
         # Wire debug: log incoming response
         self._wire_log_response(result)
 
@@ -267,10 +273,12 @@ class OpenAICompatibleProvider(LLMProvider):
         normalized = []
         for msg in messages:
             content = msg.get("content")
+            reasoning = ({"reasoning_content": msg["reasoning_content"]}
+                         if msg.get("role") == "assistant" and isinstance(msg.get("reasoning_content"), str) else {})
 
             # Plain string — pass through
             if isinstance(content, str):
-                normalized.append({"role": msg["role"], "content": content})
+                normalized.append({"role": msg["role"], "content": content, **reasoning})
                 continue
 
             # List of content blocks
@@ -363,13 +371,14 @@ class OpenAICompatibleProvider(LLMProvider):
                     "role": msg.get("role", "assistant"),
                     "content": "\n".join(text_parts) or "",
                 }
+                out.update(reasoning)
                 if tool_calls:
                     out["tool_calls"] = tool_calls
                 normalized.append(out)
                 continue
 
             # Fallback
-            normalized.append({"role": msg.get("role", "user"), "content": str(content) if content else ""})
+            normalized.append({"role": msg.get("role", "user"), "content": str(content) if content else "", **reasoning})
 
         return OpenAICompatibleProvider._sanitize_messages(normalized)
 
@@ -412,7 +421,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 else:
                     names = [tc.get("function", {}).get("name", "?") for tc in tcs]
                     text = m.get("content") or f"Called {', '.join(names)}"
-                    sanitized.append({"role": "assistant", "content": text})
+                    sanitized.append({k: v for k, v in {**m, "content": text}.items() if k != "tool_calls"})
             # Strip orphaned tool results (no matching assistant tool_call)
             elif m.get("role") == "tool":
                 tid = m.get("tool_call_id", "")
@@ -428,7 +437,8 @@ class OpenAICompatibleProvider(LLMProvider):
         if sanitized and sanitized[-1].get("role") == "assistant" and sanitized[-1].get("tool_calls"):
             last = sanitized[-1]
             names = [tc.get("function", {}).get("name", "?") for tc in last["tool_calls"]]
-            sanitized[-1] = {"role": "assistant", "content": last.get("content") or f"Called {', '.join(names)}"}
+            sanitized[-1] = {k: v for k, v in last.items() if k != "tool_calls"}
+            sanitized[-1]["content"] = last.get("content") or f"Called {', '.join(names)}"
 
         return sanitized
 

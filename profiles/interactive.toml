@@ -19,6 +19,10 @@ max_iterations = 20
 max_tool_calls = 50
 diagnostics = false  # Console diagnostics are opt-in; file logs remain enabled.
 
+# A single interactive investigator needs scope, not an exclusive swarm claim.
+[coordination]
+claim_mode = "shared"
+
 [mechanisms]
 enabled = []
 

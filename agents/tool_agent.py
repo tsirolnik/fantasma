@@ -51,6 +51,7 @@ class AgentTrace:
     iterations: int = 0
     total_duration_ms: float = 0.0
     final_answer: str = ""
+    final_reasoning: str | None = None
     exit_reason: str = ""  # llm_concluded | guardrail | max_iterations | exception
 
 
@@ -432,9 +433,12 @@ class ToolAgent(BaseAgent):
                 "%s: LLM call #%d — %d msgs, ~%dK chars, model=%s",
                 self.name, iteration + 1, len(messages), _ctx_chars // 1000, _model_name,
             )
+            request_messages = messages if getattr(self.llm, "supports_reasoning_history", False) else [
+                {k: v for k, v in m.items() if k != "reasoning_content"} for m in messages
+            ]
             if self.on_context_snapshot is not None:
                 try:
-                    self.on_context_snapshot(messages, tool_schemas)
+                    self.on_context_snapshot(request_messages, tool_schemas)
                 except Exception:
                     logger.exception("Context inspection callback failed")
             if self.on_llm_start is not None:
@@ -444,7 +448,7 @@ class ToolAgent(BaseAgent):
                     pass
             _llm_start = _time.monotonic()
             response = await self.llm.chat_with_tools(
-                messages=messages,
+                messages=request_messages,
                 tools=tool_schemas,
                 max_tokens=self.max_response_tokens,
             )
@@ -546,6 +550,9 @@ class ToolAgent(BaseAgent):
                         self.name, len(tool_blocks),
                     )
 
+            reasoning_metadata = ({"reasoning_content": response["reasoning_content"]}
+                                  if isinstance(response.get("reasoning_content"), str) else {})
+
             # Broadcast LLM call event (prefer thinking content over response text)
             thinking = response.get("thinking", "") or ""
             reasoning_text = thinking if thinking else ("\n".join(text_parts) if text_parts else "")
@@ -585,7 +592,7 @@ class ToolAgent(BaseAgent):
                     "%s: malformed tool call at iteration %d — retrying without compression",
                     self.name, iteration + 1,
                 )
-                messages.append({"role": "assistant", "content": _full_text})
+                messages.append({"role": "assistant", "content": _full_text, **reasoning_metadata})
                 messages.append({"role": "user", "content": (
                     "Your tool call was malformed. Please try again — use exact "
                     "parameter names from the tool schema and ensure valid JSON."
@@ -618,7 +625,7 @@ class ToolAgent(BaseAgent):
                 # Before finishing, check for pending director directives
                 if not self._directive_queue.empty():
                     if text_parts:
-                        messages.append({"role": "assistant", "content": "\n".join(text_parts)})
+                        messages.append({"role": "assistant", "content": "\n".join(text_parts), **reasoning_metadata})
                     while not self._directive_queue.empty():
                         try:
                             directive = self._directive_queue.get_nowait()
@@ -635,7 +642,7 @@ class ToolAgent(BaseAgent):
                         "%s: tried to conclude at iteration %d — pushing back",
                         self.name, trace.iterations,
                     )
-                    messages.append({"role": "assistant", "content": "\n".join(text_parts) if text_parts else "I'll wrap up."})
+                    messages.append({"role": "assistant", "content": "\n".join(text_parts) if text_parts else "I'll wrap up.", **reasoning_metadata})
                     capability = getattr(self, "capability", "")
                     if "valid" in capability:
                         messages.append({"role": "user", "content": (
@@ -646,16 +653,16 @@ class ToolAgent(BaseAgent):
                         )})
                     else:
                         messages.append({"role": "user", "content": (
-                            "You cannot conclude on your own. Keep testing — you still have budget and iterations left. "
-                            "Move to a different target or try different tools/techniques on current targets. "
-                            "Use run_docker_tool for nuclei, ffuf, nmap. Try fuzz_parameter on discovered forms. "
-                            "Check for SSRF, open redirects, CORS misconfig. Only the director can tell you to stop."
+                            "This role is configured to await director completion. Report completed work or blocked prerequisites "
+                            "through shared memory. Continue only with an evidence-supported action within the assignment; "
+                            "do not run unrelated checks to consume remaining budget."
                         )})
                     continue
 
                 # LLM is done — return the final text
                 final_text = "\n".join(text_parts)
                 result = self._parse_final_answer(final_text)
+                trace.final_reasoning = reasoning_metadata.get("reasoning_content")
                 trace.exit_reason = "llm_concluded"
                 trace.messages = messages
                 logger.info(
@@ -913,7 +920,7 @@ class ToolAgent(BaseAgent):
                 continue  # skip history append + compression entirely
 
             # Append assistant message + tool results
-            messages.append({"role": "assistant", "content": content})
+            messages.append({"role": "assistant", "content": content, **reasoning_metadata})
             messages.append({"role": "user", "content": tool_results})
 
             # Compress older messages to prevent context overflow
@@ -1076,7 +1083,9 @@ class ToolAgent(BaseAgent):
                     f"[{'; '.join(result_summaries)}]"
                 )
                 # Replace with a single text exchange
-                compressed.append({"role": "assistant", "content": f"Called {', '.join(tool_names)}"})
+                prior_reasoning = assistant_msg.get("reasoning_content", "")
+                rationale = ("\n[Prior model reasoning, truncated; not verified evidence]\n" + prior_reasoning[:2000]) if prior_reasoning else ""
+                compressed.append({"role": "assistant", "content": f"Called {', '.join(tool_names)}" + rationale})
                 compressed.append({"role": "user", "content": summary})
             else:
                 # Keep recent pairs intact
@@ -1121,7 +1130,8 @@ class ToolAgent(BaseAgent):
                         is_err = block.get("is_error", False)
                         results.append(f"{'ERROR: ' if is_err else ''}{content_str}")
 
-            pairs_text.append(f"Tools: {', '.join(tool_names)}\nResults: {' | '.join(results)}")
+            reasoning = messages[assistant_idx].get("reasoning_content", "")
+            pairs_text.append(f"Prior model reasoning (not verified evidence): {reasoning}\nTools: {', '.join(tool_names)}\nResults: {' | '.join(results)}")
 
         if not pairs_text:
             return messages
@@ -1131,7 +1141,7 @@ class ToolAgent(BaseAgent):
             "Summarize these pentesting tool calls and results into a detailed bullet-point summary. "
             "Focus on: what was discovered, what vulnerabilities were found or ruled out, "
             "what targets were tested, exact URLs/endpoints tested, HTTP responses received, "
-            "and any errors. Be specific — include status codes, header values, and payload snippets. "
+            "and any errors. Preserve decision rationale, uncertainties, intended next steps and stopping conditions; do not treat reasoning as evidence. Be specific — include status codes, header values, and payload snippets. "
             "Preserve full HTTP request/response pairs that contain vulnerability evidence. "
             f"Keep it under {word_limit} words.\n\n"
             + "\n---\n".join(pairs_text)
@@ -1644,7 +1654,7 @@ class ToolAgent(BaseAgent):
             "http_fetch", "http_probe",
         }
         _DOCKER_HEAVY = {
-            "run_docker_tool",  # gau, katana, nmap, nuclei, ffuf, sqlmap etc.
+            "run_docker_tool",  # gau, katana, nmap, ffuf, sqlmap etc.
         }
         _SCANNER = {
             "run_nuclei", "run_ffuf", "run_sqlmap", "run_nikto",
@@ -1840,8 +1850,8 @@ class ToolAgent(BaseAgent):
                 "meets the bar (a REAL victim's data or a crossed privilege boundary, "
                 "proven with the actual request+response), call submit_finding. If it "
                 "genuinely does not (the gate held, it's by-design, or it's self-only), "
-                "write it off out loud and move to a FRESHER target — do not keep "
-                "re-probing a dead lead."
+                "record that conclusion. Pursue another lead only when evidence justifies it; "
+                "otherwise conclude with findings and remaining uncertainty."
             )
         elif not my_claims and not my_disc:
             lines.append(
@@ -1908,7 +1918,8 @@ class ToolAgent(BaseAgent):
         briefing = build_turn_context(state, template=custom_template)
         # Both context modes must dispatch turn hooks exactly once per turn.
         digest = self._build_progress_digest(iteration)
-        return f"{briefing}\n\n{digest}" if digest else briefing
+        parts = [self.system_prompt, briefing, digest]
+        return "\n\n".join(part for part in parts if part)
 
     def _build_initial_messages(self, assignment: TaskAssignment) -> list[dict]:
         return [{"role": "user", "content": self._build_user_message(assignment)}]

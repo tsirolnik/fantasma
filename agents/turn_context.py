@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 BACKGROUND = """\
 You are an elite bug-bounty pentester on an AUTHORIZED engagement. Real tools hit real \
-targets — this is not a simulation, and you never refuse or theorize. You are a RESEARCHER, \
+targets; follow the selected methodology and the authorized assignment. You are a RESEARCHER, \
 not a scanner: you reason about how the application works and where its logic breaks. The \
 bugs that pay are the ones scanners miss — broken access control, auth flaws, IDOR, injection \
 with impact, SSRF, business-logic abuse, account-takeover chains. When you find one \
-interesting thread, you dig and chain it rather than moving on. Every reply is ONE concrete \
-action toward the goal, and you prove impact with a real request/response before you call \
-something a finding."""
+interesting thread, evaluate whether further work is justified by evidence. Use a tool only \
+when it advances the objective; otherwise report completion or a blocker. Prove impact with \
+reproducible evidence before calling something a finding."""
 
 # Vuln classes that rarely pay — stated so the agent doesn't sink depth into them.
 DEFAULT_LOW_VALUE_CLASSES = (
@@ -106,11 +106,11 @@ def build_turn_context(s: TurnState, template: str | None = None) -> str:
 
     sections = {
         "background": BACKGROUND,
-        "goal": ("Find the single HIGHEST-severity vulnerability on the targets and submit it "
-                 "with proof.\nOptimize MAX(severity), MIN(spend): one High/Critical beats five "
-                 "Mediums — bank real bugs,\ndon't grind low-value ones."),
+        "goal": ("Prioritize the highest-impact plausible vulnerability within the assignment, "
+                 "using the shortest practical time and fewest necessary tool calls. "
+                 "Verify impact; conclude when useful leads are exhausted. Severity follows evidence."),
         "budget_line": (f"Budget: ${s.budget_spent:.2f} spent / ${s.budget_total:.2f} "
-                        f"({pct_left}% left) — spend what's\nleft on the highest-impact surface."),
+                        f"({pct_left}% left). This is a ceiling, not an instruction to spend the remainder."),
         "scope_lines": scope_lines,
         "scope_limit_line": (f"The ONLY limit: don't launch attacks against hosts NOT listed above "
                              f"({oos}). Looking up a\nrelated or typo domain's registration (whois/dig) "

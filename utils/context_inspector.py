@@ -12,7 +12,8 @@ class ContextInspector:
 
     def capture(self, messages, tools):
         self.messages = [{'role': str(message.get('role', '?')),
-                          'content': TerminalActivity.preview(message.get('content', ''))}
+                          'content': TerminalActivity.preview(message.get('content', '')),
+                          'reasoning_content': TerminalActivity.preview(message.get('reasoning_content', ''))}
                          for message in messages]
         self.message_sizes = [len(str(m.get('content', ''))) for m in messages]
         self.tools = [{'name': str(t.get('name', '?')), 'schema': TerminalActivity.preview(t)} for t in tools]
@@ -23,6 +24,10 @@ class ContextInspector:
         history = getattr(agent, 'history', s.saved_history) if agent else s.saved_history
         messages = self.messages if self.messages is not None else history
         label = 'Last assembled model request' if self.messages is not None else 'Saved conversation (no model request yet)'
+        if view == 'reasoning':
+            entries = [f"Message {i} · provider-returned reasoning\n" + TerminalActivity.preview(m['reasoning_content'])
+                       for i, m in enumerate(messages, 1) if m.get('reasoning_content')]
+            return label + '\nReasoning is model-generated context, not verified evidence.\n' + ('\n\n'.join(entries) or 'No provider reasoning captured in this context. Older sessions cannot recover discarded reasoning.')
         if view.isdigit():
             index = int(view) - 1
             if not 0 <= index < len(messages):
@@ -59,5 +64,5 @@ class ContextInspector:
                 f'{len(messages)} messages · {chars:,} content characters · {len(self.tools)} tool schemas\n'
                 f'{s.memory.findings_count} findings · {len(s.memory._entries)} shared notes\n'
                 'Views: /context messages | /context N | /context tools\n'
-                '       /context prompt | /context memory | /context plan\n'
-                'Read-only previews; redacted and bounded. Not hidden model reasoning.')
+                '       /context prompt | /context memory | /context plan | /context reasoning\n'
+                'Read-only previews; redacted and bounded. Reasoning view shows only provider-returned text.')

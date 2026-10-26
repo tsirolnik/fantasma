@@ -41,6 +41,9 @@ class InteractivePentester(PenTesterAgent):
                 f"\n\nUser request:\n{assignment.context}")
 
     def _check_scope_claim(self, tool_name, params):
+        # Search only visits the fixed public search engine, never a target.
+        if tool_name == "web_search":
+            return None
         if not self._allowed_domains:
             return "No target scope configured. Ask the user to set /scope before using tools."
         return super()._check_scope_claim(tool_name, params)
@@ -51,7 +54,10 @@ class InteractivePentester(PenTesterAgent):
         if result.success and self.last_trace:
             self.history = list(self.last_trace.messages)
             if self.last_trace.final_answer:
-                self.history.append({"role": "assistant", "content": self.last_trace.final_answer})
+                message = {"role": "assistant", "content": self.last_trace.final_answer}
+                if self.last_trace.final_reasoning is not None:
+                    message["reasoning_content"] = self.last_trace.final_reasoning
+                self.history.append(message)
         return result
 
 
@@ -68,6 +74,9 @@ HELP = """Enter a question or investigation request. No work starts until you se
 /stop              Cancel current work and remain in the session
 /quit              Cancel current work and close the session
 /help              Show this help
+Full-screen controls: Tab focus; Ctrl+O/G inspect; arrows select in inspector;
+Ctrl+U/D scroll reading panes; Ctrl+L latest; Ctrl+J newline; Ctrl+X replace.
+Ctrl means Control (⌃ on Mac), not Command. Escape closes inspection.
 While work runs, new text redirects it before a subsequent model call.
 """
 
@@ -110,11 +119,11 @@ async def terminal_lines(session=None):
             bottom_toolbar=session.activity.formatted_toolbar if session else None,
             refresh_interval=0.1,
             style=Style.from_dict({
-                "bottom-toolbar": "bg:#101820 #adbac7 noreverse",
-                "activity": "bg:#101820 #78dcca",
-                "panel-title": "bg:#20313b #78dcca bold",
-                "panel-body": "bg:#101820 #d5dde5",
-                "prompt": "#78dcca bold",
+                "bottom-toolbar": "fg:default bg:default noreverse",
+                "activity": "fg:default bg:default bold",
+                "panel-title": "fg:default bg:default reverse bold",
+                "panel-body": "fg:default bg:default",
+                "prompt": "fg:default bg:default bold",
             }),
         )
         if session:
@@ -409,10 +418,10 @@ class InteractiveSession:
             view = text[len('/context'):].strip() or 'overview'
             if view == 'off':
                 self.activity.set_inspection(False)
-            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory', 'plan') or view.isdigit():
+            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory', 'plan', 'reasoning') or view.isdigit():
                 self.activity.open_context(view)
             else:
-                self.write('Usage: /context [messages|N|tools|prompt|memory|plan|off]')
+                self.write('Usage: /context [messages|N|tools|prompt|memory|plan|reasoning|off]')
         elif text == '/peek' or text.startswith('/peek '):
             argument = text[5:].strip()
             if argument in ('on', 'off'):
@@ -480,6 +489,11 @@ async def run_interactive(profile, llm_config, args, mechanisms):
     resume_id = getattr(args, 'resume_session', None)
     store.acquire(resume_id)
     web_ui = None
+    console = None
+    if session.live_terminal:
+        from utils.terminal_console import TerminalConsole
+        console = TerminalConsole(session)
+        session.write = console.write
     try:
         snapshot = store.load(resume_id) if resume_id else None
         session.attach_store(store, snapshot)
@@ -487,10 +501,16 @@ async def run_interactive(profile, llm_config, args, mechanisms):
             from web.interactive import InteractiveWebUI
             web_ui = InteractiveWebUI(session)
             await web_ui.start()
-        await session.run(terminal_lines(session))
+        if console:
+            await console.run()
+            terminal_write(f"Session closed. Estimated spend: ${session.cost.get_total():.4f}")
+        else:
+            await session.run(terminal_lines(session))
     finally:
         try:
             if web_ui is not None:
                 await web_ui.shutdown()
         finally:
             store.close()
+            if session.session_id and store.path(session.session_id).is_file():
+                terminal_write(f"Resume: fantasma full --resume-session {session.session_id}")

@@ -90,3 +90,42 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
             store.return_value.list.return_value=[]
             await async_main(build_parser().parse_args(['sessions']))
             orchestrator.assert_not_called()
+
+
+class ExitResumeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_exit_prints_saved_resume_command_after_ui_cleanup(self):
+        from agents.interactive import run_interactive
+        profile = load_profile('interactive')
+        async def lines(session):
+            yield '/quit'
+        for terminal in (False, True):
+            with self.subTest(terminal=terminal), tempfile.TemporaryDirectory() as directory:
+                store = InteractiveSessionStore(directory)
+                output = []
+                class Console:
+                    def __init__(self, session):
+                        self.session = session
+                    def write(self, text):
+                        pass
+                    async def run(self):
+                        await self.session.run(lines(self.session))
+                        output.append('screen restored')
+                with patch('memory.interactive_sessions.InteractiveSessionStore', return_value=store), \
+                     patch('agents.interactive.terminal_write', side_effect=output.append), \
+                     patch('agents.interactive.terminal_lines', lines), \
+                     patch('agents.interactive.sys.stdin.isatty', return_value=terminal), \
+                     patch('agents.interactive.sys.stdout.isatty', return_value=terminal), \
+                     patch.dict('os.environ', {'TERM':'xterm-256color'}), \
+                     patch('utils.terminal_console.TerminalConsole', Console):
+                    await run_interactive(profile, profile.llm, SimpleNamespace(budget=1), [])
+                command = f'Resume: fantasma full --resume-session {store.session_id}'
+                self.assertEqual(output[-1], command)
+                self.assertEqual(output.count(command), 1)
+                self.assertTrue(store.path(store.session_id).is_file())
+                if terminal:
+                    self.assertLess(output.index('screen restored'), output.index(command))
+                # The printed command points to a saved, unlocked session.
+                other = InteractiveSessionStore(directory)
+                other.acquire(store.session_id)
+                self.assertEqual(other.load(store.session_id)['id'], store.session_id)
+                other.close()

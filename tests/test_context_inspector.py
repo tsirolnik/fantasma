@@ -63,3 +63,15 @@ class ContextTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.success)
         self.assertTrue(s.context_inspector.messages)
         self.assertIn('User request:\nhi',s.context_inspector.render('1'))
+
+    async def test_reasoning_view_captures_native_text_without_mutation(self):
+        s = self.session()
+        self.assertIn('No provider reasoning', s.context_inspector.render('reasoning'))
+        messages = [{'role': 'assistant', 'content': 'Checking fixture',
+                     'reasoning_content': 'Check the fixture before choosing the next step.'}]
+        s.context_inspector.capture(messages, [])
+        messages[0]['reasoning_content'] = 'changed'
+        await s.handle('/context reasoning')
+        self.assertEqual(s.activity.context_view, 'reasoning')
+        self.assertIn('Check the fixture', s.context_inspector.render('reasoning'))
+        self.assertNotIn('changed', s.context_inspector.render('reasoning'))

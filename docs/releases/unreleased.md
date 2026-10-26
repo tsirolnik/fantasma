@@ -18,6 +18,21 @@ v0.1.0 tag and release archives have not been rebuilt with them.
   `/save`, `/session`, and `/continue`.
 - Refreshed browser dashboards and README screenshots with labeled example data.
 
+## Current release-check additions
+
+- Default interactive coordination uses shared claims; explicitly scoped requests
+  do not require an extra swarm claim before accessing a target. Scope checks remain.
+- Continuous terminal conversation with inline multiline input and a side inspector.
+- Mac-friendly controls, native terminal copy selection, inherited light/dark colors,
+  and an exact resume command printed after exit.
+- Native OpenAI-compatible reasoning retained across calls and saved conversations;
+  `/context reasoning` exposes bounded previews and compression includes older rationale.
+- Browser-backed `web_search` with no search API key, bounded results and explicit
+  challenge/error states. Nuclei remains available without prompt recommendations.
+- Built-in pentester methodologies prioritize evidence-supported impact, time and
+  necessary tool calls. Swarm pentesters may conclude; rebuilt context includes
+  the selected methodology. These changes are not a measured quality benchmark.
+
 ## Investigation continuity
 
 Interactive agents can record questions, evidence, decisions, and next steps in a

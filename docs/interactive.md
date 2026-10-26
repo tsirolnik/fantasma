@@ -36,7 +36,7 @@ your first plain-text request. Controls such as `/status` do not call a model.
 ## Inspecting context
 
 Ctrl+G opens/closes the read-only context panel. Escape closes either inspector;
-Ctrl+O switches to tool activity. Context opens at the top; PgUp/PgDn scroll it.
+Ctrl+O switches to tool activity. Context opens at the top; Tab focuses its pane and PgUp/PgDn scroll it. F5/F6 cycle context views.
 
 | Command | View |
 | --- | --- |
@@ -144,7 +144,7 @@ Tool activity is visible even with diagnostics disabled:
 Failures use `✗`. Previews omit raw arguments and output, including URL credentials
 and query strings. Tool results remain available to the agent and diagnostic logs.
 The input prompt stays editable while activity updates; use `/stop` or Ctrl+C to
-cancel active work. Ctrl+D closes the session. Piped input uses plain text with
+cancel active work. Ctrl+D closes the session when the draft is empty. Piped input uses plain text with
 no animation. The playful phrases are waiting indicators, not claims about
 specific actions or access to the model's internal reasoning.
 
@@ -154,7 +154,8 @@ Inspect activity without enabling debug logs:
 - `/peek 3`: inputs, result/error, status, and timing for call #3.
 - `Ctrl+O`: open/close the live inspector panel, preserving your input draft.
   Escape or `/peek off` also closes it. The panel opens at the tail and follows
-  new output. PgUp pauses following; PgDn back to the bottom or End resumes it.
+  new output until its pane is focused. Tab focuses the pane for scrolling;
+  F5/F6 select previous/next retained calls, including a latest-activity view.
   Long lines wrap to the panel width.
 - `/peek on` or `/peek off`: explicitly enable or disable live details.
 
@@ -271,3 +272,138 @@ the terminal. Both operate on the same session: requests, redirects, `/scope`,
 tool-start messages, spend and findings count. Close the session with `/quit`
 or EOF in the terminal; the browser does not keep it alive afterward.
 The pentester view does not expose swarm-specific widgets or browser-watch.
+
+## Full-screen console
+
+On an interactive terminal, Fantasma opens a full-screen workspace with a
+scrollable conversation and a separate tool/context inspector. The multiline
+input sits directly beneath the latest message in the same conversation column,
+growing with your draft (up to six visible lines). Short conversations leave unused
+space below the input; long conversations scroll above it. Inspectors appear beside the conversation on wide terminals
+and below it on narrow terminals. Replies render Markdown. The screen restores
+when the session closes. After the screen is restored, the CLI prints the exact
+`fantasma full --resume-session ID` command for the saved session. This also
+appears after plain-text exits; plain piped input and `TERM=dumb` keep text output.
+
+| Control | Action |
+| --- | --- |
+| Enter | Send; while busy, steer the current request |
+| Alt+Enter or Ctrl+J | Insert a newline |
+| Ctrl+X | Send the draft as an interrupt-and-replace request |
+| Ctrl+C | Stop work, keeping the draft and session |
+| Ctrl+D in composer with empty draft | Close the session |
+| Tab / Shift+Tab | Move focus between conversation, inspector and composer |
+| Tab on a slash command | Show command completions |
+| F2 / Ctrl+O | Toggle tool inspector |
+| F3 / Ctrl+G | Toggle context inspector |
+| F5 / F6 or Left / Right in inspector | Select previous/next tool call or context view |
+| PageUp / PageDown | Scroll focused inspector, or conversation otherwise |
+| Ctrl+U / Ctrl+D in conversation or inspector | Scroll up / down without Page keys |
+| Ctrl+End or Ctrl+L | Follow latest conversation output and return to composer |
+| Escape | Close inspector and return to composer |
+
+On macOS, hints use shortcuts that do not require function keys or configuring
+Option as Meta: **Ctrl+O** opens/focuses tools, **Ctrl+G** opens/focuses context,
+**Left/Right** selects inspector entries, **Ctrl+U/D** scrolls the focused reading
+pane, **Ctrl+L** returns to the latest conversation and composer, and **Ctrl+J**
+inserts a newline. These alternatives also work on Linux. Ctrl means Control (⌃),
+not Command (⌘). Command shortcuts such as copy/paste remain managed by the
+terminal application; Fantasma does not change your terminal's key mappings.
+Option+Enter depends on the terminal sending an Escape-prefixed Enter; Ctrl+J
+is the alternative when it does not. Opening an inspector focuses it; Tab returns
+to the composer without closing it, and Escape closes it. Ctrl+D scrolls while
+reading a pane and only exits from an empty composer.
+
+Console text inherits your terminal’s foreground/background palette in both light
+and dark themes. Headers and selections use reverse video; Markdown keeps
+formatting without forcing a dark color palette.
+
+The console leaves mouse events to your terminal: drag to select text and use
+Command+C on macOS (or your terminal’s normal Copy shortcut). No Shift-drag
+workaround is required. Use Tab and the scrolling shortcuts above to navigate
+inside the app; mouse scrolling is handled by the terminal. The conversation view retains the latest
+500 display entries; saved session history is managed separately. Opening or
+closing a pane preserves your draft. Use `/help` for session commands.
+
+## Reasoning continuity
+
+For the OpenAI-compatible provider (including Novita), native `reasoning_content`
+returned by the endpoint is now retained with its assistant message and sent back
+on subsequent tool calls and conversation turns. It is also saved in session
+history and restored on resume. No additional model call is needed. Endpoints
+that do not return this field keep their existing behavior; inline `<think>` text
+is not converted into a native API field. Other provider adapters do not receive
+this OpenAI-specific field when a session switches providers.
+
+Use `/context reasoning` to inspect redacted, bounded previews from the last
+assembled request (or saved conversation before the first request). This is
+provider-returned text, not verified evidence. It does not appear in normal chat
+output. The request view updates at the next model call.
+
+Recent reasoning stays intact alongside its tool calls and results. When context
+compression runs, older reasoning is supplied to the summarizer along with the
+results; fallback compression keeps a labeled excerpt of up to 2,000 characters
+per old turn. Retaining reasoning can increase context size, cost and local
+session storage. This adds continuity, but does not guarantee better decisions.
+
+Restart the CLI to load this change. Existing sessions can be resumed, but
+reasoning discarded by older versions cannot be recovered. This currently
+applies to accumulated conversation history, including interactive mode; swarm
+agents that rebuild their briefings each step do not retain full turn history.
+
+## Browser-based web search
+
+`web_search` uses headless Playwright Chromium to read DuckDuckGo's HTML search
+page. No search API or API key is required. Browser support is enabled by default;
+set `ENABLE_BROWSER=true` if you previously disabled it, and install Chromium:
+
+```bash
+python -m playwright install chromium
+```
+
+Example tool arguments:
+
+```json
+{"query": "Python asyncio TaskGroup official documentation", "max_results": 5}
+```
+
+Queries must be nonempty and at most 500 characters. `max_results` accepts 1–10
+(default 5). Results contain titles, URLs and short snippets, with duplicates
+removed. Search uses a temporary tab and closes it afterward, leaving the agent's
+current page intact. Agents without an existing browser session create and close
+a temporary browser pool. Disabling browser support makes search unavailable.
+
+Search performs one navigation with a 20-second navigation timeout and a
+25-second overall operation timeout. Challenges/rate limits return `blocked`;
+unrecognized markup returns `unrecognized_page`, not a misleading empty result.
+There are no automatic retries or CAPTCHA bypasses. Search-engine markup can
+change, and public engines can block automated browsing.
+
+Search sends the query to a public engine: do not include credentials or private
+information. Results are untrusted references, not proof of a vulnerability.
+Public search does not require target scope; following URLs with other tools
+still uses those tools' existing scope checks. Nuclei remains available through
+Docker and the scanner toolset, but agent prompts and Docker examples no longer
+recommend or prescribe it.
+
+## Investigation objective
+
+The built-in interactive, pentest (full and compact), and red-team methodologies
+prioritize the highest-impact plausible vulnerability within the user's requested
+work and authorized scope, in the shortest practical time with the fewest
+necessary tool calls. Impact, likelihood, and expected useful evidence guide the
+next action. Scanning, fuzzing and enumeration are optional techniques rather
+than a mandatory sequence. Efficiency never replaces verification: findings need
+reproducible evidence and demonstrated impact, and severity follows that evidence.
+
+Budgets are ceilings, not spending targets. Pentesters may conclude when the
+objective is met, useful leads are exhausted, or missing prerequisites block
+progress. They report uncertainty rather than claiming exhaustive coverage or
+that the most severe possible vulnerability has been found. Swarm turn context
+includes the selected methodology on each rebuilt turn. Custom methodologies and
+profile extra instructions remain user-controlled.
+
+Interactive mode still answers ordinary questions without starting an
+investigation. The objective governs investigations the user actually requests.
+These are prompt and stopping-policy changes; offline regression tests verify
+instruction delivery and termination, not real-world vulnerability-finding speed.

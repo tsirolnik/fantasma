@@ -13,12 +13,14 @@ Use Python 3.13 on Linux or macOS. From your checkout:
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e . build twine
+python -m playwright install chromium
 python -m unittest discover -s tests
 python scripts/generate_reference.py --check
 ```
 
-Tests use mocks and a local MCP demo process. They do not require model API keys,
-Docker, browser downloads, or external scan targets. Runtime setup is described
+Tests use mocks, a local MCP demo process, and Chromium with intercepted local
+search fixtures. Install Chromium once using the command above. Tests do not
+require model API keys, Docker, or external scan targets. Runtime setup is described
 in [Getting started](docs/getting-started.md).
 
 ## Before submitting a pull request
