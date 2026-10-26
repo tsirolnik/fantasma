@@ -31,7 +31,7 @@ v0.1.0 tag and release archives have not been rebuilt with them.
   challenge/error states. Nuclei remains available without prompt recommendations.
 - Built-in pentester methodologies prioritize evidence-supported impact, time and
   necessary tool calls. Swarm pentesters may conclude; rebuilt context includes
-  the selected methodology. These changes are not a measured quality benchmark.
+  the selected methodology on every turn.
 
 ## Investigation continuity
 

@@ -282,7 +282,7 @@ fantasma history
 
 Saved swarm checkpoints can be selected with `full --resume` or
 `--resume-scan NAME_OR_ID`. Reapply the intended profile and provider settings;
-checkpoint support is not a promise of seamless recovery for every topology.
+Swarm checkpoints restore saved state; they do not resume live tool processes.
 
 ## Boundaries
 
@@ -295,9 +295,10 @@ checkpoint support is not a promise of seamless recovery for every topology.
   host/LAN firewall.
 - **Budgets are estimates.** Pricing, usage reporting and concurrent calls can
   cause overshoot. Use provider-side limits as well.
-- **Outputs are evidence to review.** Neither model-generated verdicts nor
-  benchmark class matching establishes correctness. Competition improving
-  investigation quality remains a research question.
+- **Review findings before reporting.** Check the reproduction steps and
+  demonstrated impact. Scores rank submissions within a run; they do not certify
+  that a finding is valid. Benchmark matches identify expected vulnerability
+  classes and still require evidence review.
 - **Logs can contain sensitive material.** Runtime data and reports are ignored
   by Git, but you must review them before sharing.
 

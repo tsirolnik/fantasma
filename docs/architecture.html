@@ -23,7 +23,7 @@
 <body>
 <div id="status">loading…</div>
 <div id="content"></div>
-<textarea id="md-src" style="display:none"># fantasma — A configurable engine with runtime feedback
+<textarea id="md-src" style="display:none"># Fantasma architecture
 
 With an explicit swarm profile, the framework is **assembled at startup**, then
 **adapts while it runs**. These diagrams describe the current swarm path; the
@@ -50,28 +50,28 @@ sections afterward describe the batch swarm engine.
 
 ```mermaid
 flowchart LR
-    PROFILE["interactive.toml<br/>Methodology, model, mechanisms, request limits"] --> SESSION["Terminal session"]
-    USER["User prompt / steer / interrupt / stop"] --> SESSION
-    WEB["Optional authenticated web companion"] --> SESSION
-    SESSION --> WEB
-    SESSION --> AGENT["Pentester tool loop<br/>May answer directly and finish"]
-    AGENT --> CHECK["Scope and execution checks"]
-    CHECK --> TOOLS["HTTP / browser / Docker / memory tools"]
-    PROFILE -. "Optional MCP servers" .-> MCP["Run-scoped MCP sessions<br/>Discover tool schemas at startup"]
-    MCP -. "Register tools" .-> TOOLS
-    TOOLS --> MCP
-    MCP --> TOOLS
-    TOOLS --> AGENT
-    ENV[".env + process environment<br/>Provider and model defaults"] --> PROFILE
-    AGENT --> HISTORY["Conversation + shared memory"]
-    HISTORY --> SAVE["Atomic session snapshots<br/>History, scope, findings, cost, pending request"]
-    SAVE --> RESUME["Resume by ID or latest<br/>Restore context; wait for user"]
-    RESUME --> SESSION
-    AGENT -. "Model and tool callbacks" .-> INSPECT["Status bar + collapsible tool inspector"]
-    INSPECT --> USER
-    HISTORY --> AGENT
-    AGENT --> ANSWER["Answer, then wait for user"]
-    ANSWER --> SESSION
+    PROFILE["interactive.toml&lt;br/&gt;Methodology, model, mechanisms, request limits"] --&gt; SESSION["Terminal session"]
+    USER["User prompt / steer / interrupt / stop"] --&gt; SESSION
+    WEB["Optional authenticated web companion"] --&gt; SESSION
+    SESSION --&gt; WEB
+    SESSION --&gt; AGENT["Pentester tool loop&lt;br/&gt;May answer directly and finish"]
+    AGENT --&gt; CHECK["Scope and execution checks"]
+    CHECK --&gt; TOOLS["HTTP / browser search / Docker / memory tools"]
+    PROFILE -. "Optional MCP servers" .-&gt; MCP["Run-scoped MCP sessions&lt;br/&gt;Discover tool schemas at startup"]
+    MCP -. "Register tools" .-&gt; TOOLS
+    TOOLS --&gt; MCP
+    MCP --&gt; TOOLS
+    TOOLS --&gt; AGENT
+    ENV[".env + process environment&lt;br/&gt;Provider and model defaults"] --&gt; PROFILE
+    AGENT --&gt; HISTORY["Conversation, native reasoning&lt;br/&gt;Decision journal + shared memory"]
+    HISTORY --&gt; SAVE["Atomic session snapshots&lt;br/&gt;History, scope, findings, cost, pending request"]
+    SAVE --&gt; RESUME["Resume by ID or latest&lt;br/&gt;Restore context; wait for user"]
+    RESUME --&gt; SESSION
+    AGENT -. "Model and tool callbacks" .-&gt; INSPECT["Inline terminal input + side inspector&lt;br/&gt;Tools, context, native reasoning"]
+    INSPECT --&gt; USER
+    HISTORY --&gt; AGENT
+    AGENT --&gt; ANSWER["Answer, then wait for user"]
+    ANSWER --&gt; SESSION
 ```
 
 Profile-configured [MCP servers](mcp.md) contribute tools to tool agents across
@@ -86,18 +86,18 @@ when constructing a run—not live hot-swapping.
 
 ```mermaid
 flowchart TB
-    PROFILE["TOML profile + explicit CLI overrides"] --> LOAD["Resolve components and parameters"]
-    LOAD -. "Select / instantiate" .-> TARGET["Target provider<br/>Built-in or module:ClassName + kwargs"]
-    LOAD -. "Select / instantiate" .-> METHOD["Methodology<br/>Built-in or module:ClassName + kwargs"]
-    LOAD -. "Compose / tune" .-> MECH["Mechanisms<br/>Names or custom classes + parameters"]
-    LOAD -. "Configure" .-> POLICY["Scoring + coordination policies<br/>Rewards, thresholds, claims, review cadence"]
-    LOAD -. "Configure" .-> TOPO["Topology + per-role LLMs<br/>Team count, worker count, provider / model"]
-    TARGET -->|"Resolve scope"| ENGINE["Swarm orchestration engine"]
-    METHOD -->|"System prompt + optional turn template"| ENGINE
-    MECH -->|"Event hooks"| ENGINE
-    POLICY -->|"Rules for scoring and coordination"| ENGINE
-    TOPO -->|"Construct teams and agents"| ENGINE
-    ENGINE --> TEAM["AgentTeam × configured team count<br/>One shared Director, separate team memories"]
+    PROFILE["TOML profile + explicit CLI overrides"] --&gt; LOAD["Resolve components and parameters"]
+    LOAD -. "Select / instantiate" .-&gt; TARGET["Target provider&lt;br/&gt;Built-in or module:ClassName + kwargs"]
+    LOAD -. "Select / instantiate" .-&gt; METHOD["Methodology&lt;br/&gt;Built-in or module:ClassName + kwargs"]
+    LOAD -. "Compose / tune" .-&gt; MECH["Mechanisms&lt;br/&gt;Names or custom classes + parameters"]
+    LOAD -. "Configure" .-&gt; POLICY["Scoring + coordination policies&lt;br/&gt;Rewards, thresholds, claims, review cadence"]
+    LOAD -. "Configure" .-&gt; TOPO["Topology + per-role LLMs&lt;br/&gt;Team count, worker count, provider / model"]
+    TARGET --&gt;|"Resolve scope"| ENGINE["Swarm orchestration engine"]
+    METHOD --&gt;|"System prompt + optional turn template"| ENGINE
+    MECH --&gt;|"Event hooks"| ENGINE
+    POLICY --&gt;|"Rules for scoring and coordination"| ENGINE
+    TOPO --&gt;|"Construct teams and agents"| ENGINE
+    ENGINE --&gt; TEAM["AgentTeam × configured team count&lt;br/&gt;One shared Director, separate team memories"]
     classDef extension fill:#eef2ff,stroke:#6366f1,color:#20204a;
     class TARGET,METHOD,MECH extension;
     classDef config fill:#fff4df,stroke:#d18b17,color:#523600;
@@ -127,33 +127,34 @@ validation run concurrently with that loop.
 
 ```mermaid
 flowchart TB
-    CONTEXT["Rebuild worker context<br/>Scope, budget, facts, leads, last results"] --> LLM["Worker LLM chooses next action"]
-    LLM --> TOOL["Tool registry + execution checks"]
-    TOOL --> EXEC["HTTP / browser / Docker / code<br/>Interact with target systems"]
-    EXEC -->|"Result / error / evidence"| STATE["Agent-local observations and distilled state"]
-    STATE -->|"Next turn"| CONTEXT
+    CONTEXT["Rebuild worker context&lt;br/&gt;Methodology, scope, budget&lt;br/&gt;Facts, leads, last results"] --&gt; LLM["Worker LLM chooses next action"]
+    LLM --&gt;|"Complete or no useful next step"| DONE["Return findings and uncertainty"]
+    LLM --&gt;|"Evidence-supported action"| TOOL["Tool registry + execution checks"]
+    TOOL --&gt; EXEC["HTTP / browser / Docker / code&lt;br/&gt;Interact with target systems"]
+    EXEC --&gt;|"Result / error / evidence"| STATE["Agent-local observations and distilled state"]
+    STATE --&gt;|"Next turn"| CONTEXT
 
-    TOOL <-->|"Memory tools: claim, read, post, submit"| MEMORY[("Per-team SharedMemory<br/>Feed, claims, findings, scores")]
-    MEMORY -->|"Submission / claim events"| HOOK["Configured mechanism hooks<br/>Additional rewards, penalties, feedback"]
-    HOOK -->|"Score effects / messages"| MEMORY
+    TOOL &lt;--&gt;|"Memory tools: claim, read, post, submit"| MEMORY[("Per-team SharedMemory&lt;br/&gt;Feed, claims, findings, scores")]
+    MEMORY --&gt;|"Submission / claim events"| HOOK["Configured mechanism hooks&lt;br/&gt;Additional rewards, penalties, feedback"]
+    HOOK --&gt;|"Score effects / messages"| MEMORY
 
-    MEMORY -->|"Progress and scores"| MON["Team monitor"]
-    STATE -->|"Recent tool activity"| MON
-    MON -->|"Every second monitor tick"| DIR["Shared Director"]
-    DIR -->|"Redirects + score changes"| MON
-    MON -->|"Directive queue → worker notes"| CONTEXT
-    MON -->|"Apply score changes"| MEMORY
-    MON -->|"Score at or below threshold"| REPLACE["Cancel worker, release claims<br/>Spawn replacement within slot limit"]
-    REPLACE -->|"New worker uses prior shared work"| CONTEXT
+    MEMORY --&gt;|"Progress and scores"| MON["Team monitor"]
+    STATE --&gt;|"Recent tool activity"| MON
+    MON --&gt;|"Every second monitor tick"| DIR["Shared Director"]
+    DIR --&gt;|"Redirects + score changes"| MON
+    MON --&gt;|"Directive queue → worker notes"| CONTEXT
+    MON --&gt;|"Apply score changes"| MEMORY
+    MON --&gt;|"Score at or below threshold"| REPLACE["Cancel worker, release claims&lt;br/&gt;Spawn replacement within slot limit"]
+    REPLACE --&gt;|"New worker uses prior shared work"| CONTEXT
 
-    MON -->|"Notices findings while tasks active"| VAL["Validator / cross-team auditor"]
-    VAL -->|"Re-test with tools"| EXEC
-    EXEC -->|"Verification evidence"| VAL
-    VAL -->|"Update finding verdict in memory"| MEMORY
+    MON --&gt;|"Notices findings while tasks active"| VAL["Validator / cross-team auditor"]
+    VAL --&gt;|"Re-test with tools"| EXEC
+    EXEC --&gt;|"Verification evidence"| VAL
+    VAL --&gt;|"Update finding verdict in memory"| MEMORY
 
-    MEMORY -->|"Accepted submission"| STORE[("SQLite + optional graph<br/>Persist before verification")]
-    MEMORY -->|"Run ends"| END["Run-end mechanism hooks<br/>Collect findings, synthesize chains, debrief"]
-    END --> REPORT["ReportWorker → Markdown reports"]
+    MEMORY --&gt;|"Accepted submission"| STORE[("SQLite + optional graph&lt;br/&gt;Persist before verification")]
+    MEMORY --&gt;|"Run ends"| END["Run-end mechanism hooks&lt;br/&gt;Collect findings, synthesize chains, debrief"]
+    END --&gt; REPORT["ReportWorker → Markdown reports"]
     classDef feedback fill:#e6f5ee,stroke:#338466,color:#133c2b;
     class CONTEXT,STATE,MON,DIR,REPLACE feedback;
     classDef extension fill:#eef2ff,stroke:#6366f1,color:#20204a;
@@ -163,7 +164,9 @@ flowchart TB
 **What changes live:**
 
 - Tool outcomes update observations, repeated-endpoint tracking and distilled
-  facts/leads. The next worker prompt is rebuilt from that state.
+  facts/leads. The next worker prompt combines the selected methodology with
+  rebuilt state. Workers can conclude when their task is complete or no useful
+  evidence-supported action remains.
 - Director reviews run every second monitor tick and return redirects and score adjustments. Team monitors apply
   them; directives enter worker notes for context distillation.
 - Accepted/rejected findings and claims trigger the configured mechanism hooks.

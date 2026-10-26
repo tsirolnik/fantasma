@@ -1,7 +1,7 @@
 # Runtime, lifecycle and persistence reference
 
-This page describes the current implementation, including behavior that differs
-from class comments or the intended design. It is not a guarantee of a stable API.
+This reference covers component ownership, worker lifecycle, finding validation,
+and persistence in the current implementation.
 Return to the [documentation index](../README.md).
 
 ## Interactive default
@@ -9,7 +9,8 @@ Return to the [documentation index](../README.md).
 The default [terminal session](../interactive.md) constructs a pentester lazily
 on the first user request. It has conversation history and shared memory, with
 no Director, validator or automatic scan. Interactive snapshots retain completed
-conversation history, scope, findings, notes, budget, and recorded spend.
+conversation history (including native provider reasoning when returned), the
+decision journal, scope, findings, notes, budget, and recorded spend.
 `/stop` cancels active work; `/continue` restarts an interrupted request with saved
 context. Completed actions are not rolled back. See [saved sessions](../interactive.md#saved-sessions)
 for recovery boundaries. The sections below describe the
@@ -19,7 +20,7 @@ explicit batch/swarm path rather than that interactive lifecycle.
 
 | Component | Responsibility | Source |
 | --- | --- | --- |
-| `commands.full.run` | Load profile, apply explicit flags, choose lab or swarm | [commands/full.py](../../commands/full.py) |
+| `commands.full.run` | Load profile, apply explicit flags, choose interactive pentester, lab or swarm | [commands/full.py](../../commands/full.py) |
 | `SwarmPipeline` | Target selection, shared services, teams, persistence, finalization | [agents/swarm_pipeline.py](../../agents/swarm_pipeline.py) |
 | `AgentTeam` | Spawn workers, monitor progress, apply Director decisions, replace workers | [agents/team.py](../../agents/team.py) |
 | `AgentGroup` | Construct multiple teams, merged auditor view and cross-team broadcasts | [agents/group.py](../../agents/group.py) |
@@ -37,8 +38,8 @@ and calls the shared Director. Multi-team mode is `num_teams > 1` on swarm.
 ## Worker turns
 
 `ToolAgent.execute` drives the loop. Pentesters enable rebuilt context: each turn
-uses scope, cost/budget, dead ends, distilled facts, findings, ranked leads and
-recent tool results. Director directives enter raw notes and subsequently the
+includes the selected methodology alongside scope, cost/budget, dead ends,
+distilled facts, findings, ranked leads and recent tool results. Director directives enter raw notes and subsequently the
 distillation path. They are not guaranteed to appear verbatim immediately in the
 next briefing. Distillation can itself call a model.
 
@@ -49,9 +50,13 @@ Tool results update local state before the next model action.
 
 A methodology changes the system prompt. The default turn briefing still contains
 bug-bounty wording, goals and excluded classes from `agents/turn_context.py`.
-Selecting a different methodology alone does not replace that briefing. Supply
-`turn_template` when changing those instructions. This is a current boundary on
-the claim that the engine is domain-independent.
+The methodology is included on each rebuilt turn. To replace the default briefing
+for another investigation domain, also supply `turn_template`; see the
+[extension reference](extensions.md#methodology).
+
+Pentesters can finish when the requested objective is complete or no useful lead
+remains. Budget and tool-call limits cap execution; they do not require a worker
+to keep running. Director redirects and explicit stop controls remain available.
 
 ## Monitor cadence and replacement
 
@@ -109,7 +114,7 @@ execute once per mechanism name across team memories; order can affect scores.
 
 | Store | Contents | Location / lifetime |
 | --- | --- | --- |
-| Interactive sessions | Conversation, scope, shared-memory snapshot, pending request, tool previews, cost and budget | Atomic JSON in `data/sessions/`, or exported `FANTASMA_SESSIONS_DIR`; one writer per session |
+| Interactive sessions | Conversation and native reasoning, decision journal, scope, shared-memory snapshot, pending request, tool previews, cost and budget | Atomic JSON in `data/sessions/`, or exported `FANTASMA_SESSIONS_DIR`; one writer per session |
 | SharedMemory | Feed, claims, finding objects, score events | In process, one per team |
 | Mechanism instance | Custom counters/timers/sets | In process; not serialized by checkpoint capture |
 | SQLite | Programs, findings, scans, costs, key/value state | `./data/memory.db`, or `FANTASMA_DB_PATH` |

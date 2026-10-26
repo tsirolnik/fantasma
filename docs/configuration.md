@@ -15,10 +15,15 @@ starts a real run. TOML can import Python extensions, including during inspectio
 
 ## Sections and defaults
 
+The table lists schema defaults for omitted fields. Shipped profiles override
+them: `interactive.toml` selects pentester execution, terminal interaction, the
+interactive methodology, and shared claims. It does not require an exclusive
+swarm claim before accessing an explicitly scoped target.
+
 | Section | Keys and defaults | What consumes it |
 | --- | --- | --- |
 | `profile` | `name` defaults to file stem; `description = ""` | Display/identification |
-| `methodology` | `type = "pentest"`; other keys go to constructor | Swarm worker instructions; built-ins honor `extra_instructions`; rebuilt briefings honor `turn_template` |
+| `methodology` | `type = "pentest"`; other keys go to constructor | Interactive/swarm pentester instructions; built-ins honor `extra_instructions`; rebuilt briefings honor `turn_template` |
 | `target` | `provider = "auto"`; other keys go to constructor | Lab/swarm target selection; `auto` uses direct targets when supplied, otherwise discovery; `direct` requires `--targets` |
 | `topology` | `mode = "swarm"`, `agents_per_team = 4`, `num_teams = 1` | Engine selection and swarm size; multiple teams use swarm mode |
 | `interaction` | `mode = "batch"`, `diagnostics = false`; pentester-only `max_iterations = 20`, `max_tool_calls = 50` | Interface selection independent of topology; see [interaction](interaction.md) |

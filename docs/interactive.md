@@ -36,7 +36,7 @@ your first plain-text request. Controls such as `/status` do not call a model.
 ## Inspecting context
 
 Ctrl+G opens/closes the read-only context panel. Escape closes either inspector;
-Ctrl+O switches to tool activity. Context opens at the top; Tab focuses its pane and PgUp/PgDn scroll it. F5/F6 cycle context views.
+Ctrl+O switches to tool activity. Ctrl+G focuses the panel at the top. PgUp/PgDn or Ctrl+U/D scroll it; Left/Right or F5/F6 cycle views. Tab returns to the input without closing the panel.
 
 | Command | View |
 | --- | --- |
@@ -45,14 +45,17 @@ Ctrl+O switches to tool activity. Context opens at the top; Tab focuses its pane
 | `/context N` | Message N, numbered from 1 |
 | `/context tools` | Tool schemas from the last assembled request |
 | `/context prompt` | Current agent system instructions |
+| `/context reasoning` | Provider-returned reasoning retained in the last assembled request or saved history |
 | `/context plan` | Agent-recorded decision journal: questions, evidence, conclusions, next steps |
 | `/context memory` | Shared findings and recent notes; not necessarily all sent to the model |
 | `/context off` | Close inspection |
 
 Before a model call, the conversation view shows saved history. After a call is
 assembled, it shows a captured preview of those messages and tool schemas before
-provider-specific normalization. It does not read configured provider credentials or expose hidden reasoning or
-a live server-side context window. Conversation content may still be sensitive. Character counts refer to
+provider-specific normalization. `/context reasoning` shows only reasoning text
+returned by a supported provider; it cannot inspect undisclosed model internals
+or a live server-side context window. The inspector does not read configured
+provider credentials. Conversation content may still be sensitive. Character counts refer to
 message content, not exact tokens. Previews use the same redaction and size bounds
 as tool inspection and do not cause model calls. Capture previews are in memory;
 a resumed session starts with its saved conversation until the next request.
@@ -65,12 +68,13 @@ next step, and status (`active`, `ruled_out`, `blocked`, or `complete`). Reusing
 question updates its entry. The journal is bounded, included in each step's
 progress briefing, saved with the session, and visible through `/context plan`.
 
-The interactive briefing no longer injects swarm score or target-claim reminders.
+The interactive briefing uses the current request and decision journal. The
+default interactive profile uses shared claims, so a scoped target does not need
+a separate exclusive claim.
 It distinguishes an attempted tool call from a completed test and prompts the
 agent to summarize or ask for missing inputs when no supported next step remains.
-Simple questions need neither a journal nor tools. These are model-facing
-instructions and recorded state, not a guarantee of sound judgment; the journal
-is self-reported and does not independently validate evidence.
+Simple questions need neither a journal nor tools. Journal entries are written
+by the agent; review the underlying tool results when checking a conclusion.
 
 ## Saved sessions
 
@@ -344,7 +348,7 @@ Recent reasoning stays intact alongside its tool calls and results. When context
 compression runs, older reasoning is supplied to the summarizer along with the
 results; fallback compression keeps a labeled excerpt of up to 2,000 characters
 per old turn. Retaining reasoning can increase context size, cost and local
-session storage. This adds continuity, but does not guarantee better decisions.
+session storage. Review tool evidence alongside reasoning when assessing a conclusion.
 
 Restart the CLI to load this change. Existing sessions can be resumed, but
 reasoning discarded by older versions cannot be recovered. This currently
@@ -405,5 +409,5 @@ profile extra instructions remain user-controlled.
 
 Interactive mode still answers ordinary questions without starting an
 investigation. The objective governs investigations the user actually requests.
-These are prompt and stopping-policy changes; offline regression tests verify
-instruction delivery and termination, not real-world vulnerability-finding speed.
+The same objective applies to full and compact pentester prompts. Custom profiles
+can extend the methodology with their own instructions.

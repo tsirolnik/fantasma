@@ -1,4 +1,4 @@
-# fantasma — A configurable engine with runtime feedback
+# Fantasma architecture
 
 With an explicit swarm profile, the framework is **assembled at startup**, then
 **adapts while it runs**. These diagrams describe the current swarm path; the
@@ -31,18 +31,18 @@ flowchart LR
     SESSION --> WEB
     SESSION --> AGENT["Pentester tool loop<br/>May answer directly and finish"]
     AGENT --> CHECK["Scope and execution checks"]
-    CHECK --> TOOLS["HTTP / browser / Docker / memory tools"]
+    CHECK --> TOOLS["HTTP / browser search / Docker / memory tools"]
     PROFILE -. "Optional MCP servers" .-> MCP["Run-scoped MCP sessions<br/>Discover tool schemas at startup"]
     MCP -. "Register tools" .-> TOOLS
     TOOLS --> MCP
     MCP --> TOOLS
     TOOLS --> AGENT
     ENV[".env + process environment<br/>Provider and model defaults"] --> PROFILE
-    AGENT --> HISTORY["Conversation + shared memory"]
+    AGENT --> HISTORY["Conversation, native reasoning<br/>Decision journal + shared memory"]
     HISTORY --> SAVE["Atomic session snapshots<br/>History, scope, findings, cost, pending request"]
     SAVE --> RESUME["Resume by ID or latest<br/>Restore context; wait for user"]
     RESUME --> SESSION
-    AGENT -. "Model and tool callbacks" .-> INSPECT["Status bar + collapsible tool inspector"]
+    AGENT -. "Model and tool callbacks" .-> INSPECT["Inline terminal input + side inspector<br/>Tools, context, native reasoning"]
     INSPECT --> USER
     HISTORY --> AGENT
     AGENT --> ANSWER["Answer, then wait for user"]
@@ -102,8 +102,9 @@ validation run concurrently with that loop.
 
 ```mermaid
 flowchart TB
-    CONTEXT["Rebuild worker context<br/>Scope, budget, facts, leads, last results"] --> LLM["Worker LLM chooses next action"]
-    LLM --> TOOL["Tool registry + execution checks"]
+    CONTEXT["Rebuild worker context<br/>Methodology, scope, budget<br/>Facts, leads, last results"] --> LLM["Worker LLM chooses next action"]
+    LLM -->|"Complete or no useful next step"| DONE["Return findings and uncertainty"]
+    LLM -->|"Evidence-supported action"| TOOL["Tool registry + execution checks"]
     TOOL --> EXEC["HTTP / browser / Docker / code<br/>Interact with target systems"]
     EXEC -->|"Result / error / evidence"| STATE["Agent-local observations and distilled state"]
     STATE -->|"Next turn"| CONTEXT
@@ -138,7 +139,9 @@ flowchart TB
 **What changes live:**
 
 - Tool outcomes update observations, repeated-endpoint tracking and distilled
-  facts/leads. The next worker prompt is rebuilt from that state.
+  facts/leads. The next worker prompt combines the selected methodology with
+  rebuilt state. Workers can conclude when their task is complete or no useful
+  evidence-supported action remains.
 - Director reviews run every second monitor tick and return redirects and score adjustments. Team monitors apply
   them; directives enter worker notes for context distillation.
 - Accepted/rejected findings and claims trigger the configured mechanism hooks.

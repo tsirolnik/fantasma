@@ -1,9 +1,9 @@
-# fantasma documentation
+# Fantasma documentation
 
-fantasma composes an authorized investigation from target, methodology, model,
+Fantasma composes an authorized investigation from target, methodology, model,
 coordination and incentive components. This documentation describes the current
-repository implementation. Experimental features and gaps are called out where
-relevant; it is not a promise that every profile field applies to every engine.
+repository implementation. Each guide identifies the supported execution modes,
+configuration options, and runtime behavior.
 
 ## Learn and run
 
