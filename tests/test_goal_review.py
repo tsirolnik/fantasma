@@ -9,6 +9,50 @@ from cost.tracker import CostTracker
 
 
 class ReviewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_review_uses_interrupted_observations_after_repeated_resume(self):
+        import tempfile
+        from agents.interactive import InteractiveSession
+        from memory.interactive_sessions import InteractiveSessionStore
+        from profiles.loader import load_profile
+
+        profile = load_profile('interactive')
+        def session():
+            return InteractiveSession(profile, profile.llm, SimpleNamespace(budget=1), [], lambda text: None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            store = InteractiveSessionStore(directory)
+            store.acquire()
+            try:
+                first = session()
+                first.attach_store(store)
+                first.goal.create('Assess fixture', ['Observe the receipt'])
+                first.activity.calls.append(dict(name='read_receipt', status='done', input={'id': 2},
+                                                 output='HTTP 403: access denied'))
+                first.save()
+                restored = session()
+                restored.attach_store(store, json.loads(store.path(store.session_id).read_text()))
+                restored.activity.calls.append(dict(name='record_investigation', status='done', input={},
+                                                    output='Investigator claims success'))
+                restored.save()
+                resumed = session()
+                resumed.attach_store(store, json.loads(store.path(store.session_id).read_text()))
+                resumed.goal.resume()
+                model = self.model({'approved': True, 'feedback': 'Recorded denial supports the assessment.',
+                                    'criteria': [{'index': 0, 'met': True, 'evidence_refs': ['E1']}]})
+                resumed.goal_reviewer = GoalReviewer(model, resumed.cost, 1)
+                result = await resumed.goal.update_tool(dict(status='complete', progress='Assessed',
+                                                            evidence='Receipt access denied'))
+                self.assertEqual(result['status'], 'complete')
+                packet = resumed.goal.data['review']['observations']
+                self.assertEqual(len(packet), 1)
+                self.assertIn('HTTP 403', packet[0]['content'])
+                self.assertIn('may be truncated', packet[0]['kind'])
+                self.assertNotIn('Investigator claims success', str(packet))
+                resumed.saved_observations *= 30
+                self.assertEqual(len(resumed.recent_observations()), 20)
+            finally:
+                store.close()
+
     def model(self, verdict):
         return SimpleNamespace(model='review-fixture', estimate_cost=lambda *args: .02,
             chat_with_tools=AsyncMock(return_value={'content': [{'type': 'text', 'text': json.dumps(verdict)}],

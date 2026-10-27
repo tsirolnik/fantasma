@@ -33,7 +33,7 @@ If CLI options, settings, or finding models change, regenerate the references:
 python scripts/generate_reference.py
 python -m build
 python -m twine check dist/*
-python scripts/check_wheel.py dist/fantasma-0.1.0-py3-none-any.whl
+python scripts/check_wheel.py dist/fantasma-*.whl
 git diff --check
 ```
 

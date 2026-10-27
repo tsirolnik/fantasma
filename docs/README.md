@@ -46,10 +46,10 @@ Batch swarm and lab workflows are explicit profile choices.
 | [redteam.toml](../profiles/redteam.toml) | Direct targets and a different system methodology |
 | [Methodology and tool examples](reference/extensions.md) | Implement other Python extension points |
 
-## Changes after v0.1.0
+## Releases
 
-See [unreleased changes](releases/unreleased.md) for features on `main` that are
-not in the original v0.1.0 release artifacts.
+See [v0.2.0 release notes](releases/v0.2.0.md) for the current release and
+[unreleased changes](releases/unreleased.md) for subsequent development.
 
 ## Maintaining the references
 

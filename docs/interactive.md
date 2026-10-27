@@ -515,7 +515,9 @@ resume; the model cannot resume it on its own.
 `update_goal(status="complete", ...)` submits a completion claim. A separate
 reviewer gets a fresh conversation containing the goal, criteria, proposed
 evidence, and a bounded packet of recorded tool results, prior user input/tool
-results, and submitted findings. Claims and findings are labeled as such.
+results, and submitted findings. Saved tool previews from interrupted work are
+also included across resumes, bounded to the most recent 20 previews. Previews
+may be truncated and are not fresh executions. Claims and findings are labeled as such.
 The reviewer must return one result per criterion and cite recorded observation
 IDs for every satisfied criterion. Missing, malformed, or contradictory verdicts
 cannot complete the goal.

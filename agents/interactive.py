@@ -284,8 +284,7 @@ class InteractiveSession:
                 cost=self.cost.get_total(), budget=self.budget,
                 pending_request=self.pending_request, status=self.session_status, goal=self.goal.data,
                 journal=self.agent.journal.entries if self.agent and hasattr(self.agent, "journal") else self.saved_journal,
-                observations=([dict(name=c["name"], status=c["status"], input=c["input"], output=c["output"])
-                              for c in self.activity.calls[-20:]] or self.saved_observations)))
+                observations=self.recent_observations()))
             self.save_error_shown = False
             return True
         except (OSError, ValueError, TypeError) as exc:
@@ -293,6 +292,13 @@ class InteractiveSession:
                 self.write(f'Session save failed: {exc}. Use /save to retry.')
                 self.save_error_shown = True
             return False
+
+    def recent_observations(self):
+        """Keep bounded tool previews across resumes, including interrupted work."""
+        observations = list(self.saved_observations)
+        observations.extend(dict(name=c['name'], status=c['status'], input=c['input'], output=c['output'])
+                            for c in self.activity.calls[-20:])
+        return observations[-20:]
 
     def model_finished(self, *args):
         self.activity.llm_finished(*args)
@@ -382,6 +388,9 @@ class InteractiveSession:
                     add('prior_user_input_or_tool_results', message.get('content'))
         for finding in self.memory.get_findings()[-20:]:
             add('submitted_finding (check verification status; not independently proven)', finding.model_dump(mode='json'))
+        for observation in self.recent_observations():
+            if observation.get('name') not in ('create_goal', 'get_goal', 'update_goal', 'record_investigation'):
+                add('recorded_tool_preview (may be truncated; not a fresh execution)', observation)
         self.write('Goal reviewer: checking completion criteria against recorded evidence…')
         verdict = await self.goal_reviewer.review(goal, proposal, observations)
         # Retain the exact bounded packet alongside references so reviews remain inspectable after resume.

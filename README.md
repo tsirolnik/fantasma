@@ -201,8 +201,8 @@ an interactive session. `fantasma profiles inspect interactive` inspects a
 profile without model calls. The `python main.py` entry point also remains supported.
 
 This is a source installation; a PyPI release has not been published.
-The original v0.1.0 archives predate the latest interactive features; see
-[changes on main](docs/releases/unreleased.md).
+[v0.2.0](https://github.com/tsirolnik/fantasma/releases/tag/v0.2.0) includes
+the current interactive features as a wheel and source archive.
 
 Edit `.env` before running. The example below uses Claude for all agent roles:
 set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.
@@ -355,7 +355,7 @@ MCP plugins: see [setup, IDA connection examples, and configuration reference](d
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks, and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.
-[Release notes](docs/releases/v0.1.0.md) describe the initial release and limitations.
+[Release notes](docs/releases/v0.2.0.md) describe the current release and limitations.
 
 ## Reproducible framework integration evaluation
 
