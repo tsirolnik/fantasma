@@ -4,7 +4,9 @@
 
 Fantasma starts as an interactive security research workspace: set scope, ask an
 investigator to work, inspect its tools, and steer or stop it. Conversations and
-findings save locally so you can return to a session later.
+findings save locally so you can return to a session later. Set a persistent
+[investigation goal](docs/interactive.md#persistent-investigation-goals) to let the
+agent keep working toward explicit completion criteria within the configured limits.
 
 Choose a swarm profile to coordinate multiple investigators with shared context
 and Director oversight, or a lab profile for sequential stages. Profiles and
@@ -354,3 +356,11 @@ MCP plugins: see [setup, IDA connection examples, and configuration reference](d
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and checks, and
 [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 [Release notes](docs/releases/v0.1.0.md) describe the initial release and limitations.
+
+## Reproducible framework integration evaluation
+
+The [local integration harness](benchmark/launch/README.md) exercises the
+interactive agent, persistent goals and independent goal reviewer against a
+synthetic receipt API and a fixed control. See its setup instructions, grading
+rules and commands to run it yourself. Offline runs check wiring without API
+costs; live runs use your configured provider and budget.

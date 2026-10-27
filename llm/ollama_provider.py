@@ -159,6 +159,7 @@ class OllamaProvider(LLMProvider):
         return {
             "content": content,
             "thinking": thinking,
+            "history": {k: v for k, v in msg.items() if k in ("content", "thinking", "tool_calls")} if thinking else None,
             "stop_reason": "tool_use" if tool_calls else "end_turn",
             "usage": {"input": 0, "output": 0},
         }
@@ -211,11 +212,12 @@ class OllamaProvider(LLMProvider):
         """
         normalized = []
         for msg in messages:
+            payload = msg.get("_provider_history")
             content = msg.get("content")
 
             # Already a plain string — pass through
             if isinstance(content, str):
-                normalized.append(msg)
+                normalized.append({k: v for k, v in msg.items() if k != "_provider_history"})
                 continue
 
             # List of content blocks (Anthropic format)
@@ -280,8 +282,16 @@ class OllamaProvider(LLMProvider):
                 continue
 
             # Fallback — pass through
-            normalized.append(msg)
+            normalized.append({k: v for k, v in msg.items() if k != "_provider_history"})
 
+        assistants = iter(m for m in normalized if m.get("role") == "assistant")
+        for msg in messages:
+            if msg.get("role") != "assistant":
+                continue
+            out = next(assistants, None)
+            payload = msg.get("_provider_history")
+            if out is not None and payload and payload["provider"] == "OllamaProvider":
+                out.update({k: v for k, v in payload["data"].items() if k != "tool_calls"})
         return normalized
 
     @staticmethod

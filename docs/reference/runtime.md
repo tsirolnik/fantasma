@@ -146,3 +146,23 @@ Budgets are shared estimates based on reported usage and configured pricing.
 Concurrent calls can overshoot. Dashboard pause is cooperative, not a rollback
 of completed or in-flight external actions. See the [dashboard reference](dashboard.md)
 and [README boundaries](../../README.md#boundaries).
+
+### Thinking retention
+
+`[llm] retain_thinking = true` is the default for every role. Tool-agent history
+preserves native reasoning payloads, signed blocks, and final responses across
+interactive turns and session resume. Swarm briefings refresh without discarding
+turn history. Reasoning-bearing history bypasses both compression paths; model
+context limits still apply. See [provider formats and configuration](../interactive.md#reasoning-continuity).
+
+### Interactive goals
+
+`InvestigationGoal` holds the session's objective, criteria, status, progress,
+evidence and bounded update history. Goal tools update that state and autosave; completion passes through a separate
+`GoalReviewer` using the validator role, fresh context and recorded observations.
+Only an approved per-criterion verdict commits completion. Rejection feeds back
+into investigation, while failures or review limits pause the goal;
+the interactive progress digest includes its current snapshot. The tool-agent
+completion hook requests another step while a goal is active, bounded by the
+normal run limits and `interaction.goal_max_idle_turns`. Session restore pauses
+active goals. See [goal controls and tool reference](../interactive.md#persistent-investigation-goals).

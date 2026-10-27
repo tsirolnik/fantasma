@@ -26,13 +26,13 @@ swarm claim before accessing an explicitly scoped target.
 | `methodology` | `type = "pentest"`; other keys go to constructor | Interactive/swarm pentester instructions; built-ins honor `extra_instructions`; rebuilt briefings honor `turn_template` |
 | `target` | `provider = "auto"`; other keys go to constructor | Lab/swarm target selection; `auto` uses direct targets when supplied, otherwise discovery; `direct` requires `--targets` |
 | `topology` | `mode = "swarm"`, `agents_per_team = 4`, `num_teams = 1` | Engine selection and swarm size; multiple teams use swarm mode |
-| `interaction` | `mode = "batch"`, `diagnostics = false`; pentester-only `max_iterations = 20`, `max_tool_calls = 50` | Interface selection independent of topology; see [interaction](interaction.md) |
+| `interaction` | `mode = "batch"`, `diagnostics = false`; pentester-only `max_iterations = 20`, `max_tool_calls = 50`, `goal_max_idle_turns = 3`, `goal_max_reviews = 3` | Interface selection independent of topology; see [interaction](interaction.md) |
 | `workflow` | `stages`, `worker_mode`, `max_scan_targets`; see [lab](lab.md) | Sequential lab workflow only |
 | `mechanisms` | `enabled = []`; optional `[[mechanisms.items]]` entries | Additive swarm incentive hooks; see [mechanisms](mechanisms.md) |
 | `scoring` | `default_accepted = 10`, `rejected = -10`, `duplicate = -5`, `termination_threshold = -50` | Shared-memory base scoring and worker termination |
 | `scoring.accepted` | critical 50, high 30, medium 15, low 5 | Severity rewards; a supplied table replaces the whole map, omitted severities use `default_accepted` |
 | `coordination` | `claim_mode = "exclusive"`, `director_review_interval_s = 30`, `cross_team_sharing = true` | Swarm claims/review; cross-team sharing matters only with multiple teams |
-| `llm` | `source = "env"` (also the default when omitted) | Load providers/models from `.env` and process environment |
+| `llm` | `source = "env"`, `retain_thinking = true` | Load providers/models from `.env`; retain provider-returned thinking across turns. See [reasoning continuity](interactive.md#reasoning-continuity) for formats, costs, and disabling retention. |
 | `llm.director` | Inherits Director environment settings | Director provider/model |
 | `llm.default_worker` | Inherits worker environment settings | Default worker provider/model |
 | `llm.overrides.<agent_name>` | Each table has `provider` and `model` | Role override by lookup key, not necessarily runtime agent ID; missing fields inherit the default worker |

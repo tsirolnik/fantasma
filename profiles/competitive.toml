@@ -69,5 +69,6 @@ director_review_interval_s = 20
 cross_team_sharing = true
 
 [llm]
+retain_thinking = true
 # Load providers and models from .env (process environment takes precedence).
 source = "env"

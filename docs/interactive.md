@@ -331,29 +331,46 @@ closing a pane preserves your draft. Use `/help` for session commands.
 
 ## Reasoning continuity
 
-For the OpenAI-compatible provider (including Novita), native `reasoning_content`
-returned by the endpoint is now retained with its assistant message and sent back
-on subsequent tool calls and conversation turns. It is also saved in session
-history and restored on resume. No additional model call is needed. Endpoints
-that do not return this field keep their existing behavior; inline `<think>` text
-is not converted into a native API field. Other provider adapters do not receive
-this OpenAI-specific field when a session switches providers.
+Thinking retention is enabled by default for all provider adapters and profiles:
 
-Use `/context reasoning` to inspect redacted, bounded previews from the last
-assembled request (or saved conversation before the first request). This is
-provider-returned text, not verified evidence. It does not appear in normal chat
-output. The request view updates at the next model call.
+```toml
+[llm]
+source = "env"
+retain_thinking = true
+```
 
-Recent reasoning stays intact alongside its tool calls and results. When context
-compression runs, older reasoning is supplied to the summarizer along with the
-results; fallback compression keeps a labeled excerpt of up to 2,000 characters
-per old turn. Retaining reasoning can increase context size, cost and local
-session storage. Review tool evidence alongside reasoning when assessing a conclusion.
+Set `retain_thinking = false` to disable optional reasoning replay and allow the
+usual history compression and compact swarm briefings. This controls retention,
+not whether a model generates reasoning. It applies to every role created from
+the profile, including provider fallbacks.
 
-Restart the CLI to load this change. Existing sessions can be resumed, but
-reasoning discarded by older versions cannot be recovered. This currently
-applies to accumulated conversation history, including interactive mode; swarm
-agents that rebuild their briefings each step do not retain full turn history.
+When enabled, Fantasma retains the data the provider actually returns:
+
+| Provider | Retained context |
+| --- | --- |
+| OpenAI-compatible, including Novita | Native `reasoning_content`, `reasoning`, `reasoning_details`, and original inline `<think>` content when present |
+| Ollama | Native `thinking` with its assistant message |
+| Claude and Vertex Claude | Thinking and redacted-thinking blocks, including signatures, in their original order |
+| Gemini | Original model parts, including returned thought text and thought signatures |
+
+The final assistant response is preserved as well as intermediate tool turns.
+Interactive sessions save this data and restore it on resume. Swarm agents keep
+turn history alongside their refreshed briefing. Native payloads are replayed
+only through the originating provider adapter; switching providers does not
+translate signed reasoning. Signatures required by tool protocols are separate
+from optional retention and may still be replayed when it is disabled.
+
+Reasoning-bearing history is kept intact instead of being summarized or
+truncated, including during emergency compression. This can increase request
+cost, latency, and session storage, and eventually exceed the provider's context
+window. There is no unlimited-context guarantee: start a new session or disable
+retention when needed. Existing discarded reasoning cannot be recovered.
+
+Use `/context reasoning` for redacted, bounded previews of readable returned
+reasoning. Opaque signatures are not displayed as thoughts. Provider-returned
+reasoning is model-generated context, not verified evidence. Providers may
+return summaries, opaque data, or no reasoning at all; Fantasma cannot recover
+internal reasoning the provider does not expose.
 
 ## Browser-based web search
 
@@ -411,3 +428,124 @@ Interactive mode still answers ordinary questions without starting an
 investigation. The objective governs investigations the user actually requests.
 The same objective applies to full and compact pentester prompts. Custom profiles
 can extend the methodology with their own instructions.
+
+## Agent-requested scope
+
+In interactive mode, the agent can call `request_scope` with `hosts` (an array
+of hostnames or IPs) and a `reason`. The console displays the proposed additions
+and waits for your decision:
+
+- `/scope approve` adds the requested hosts to the existing scope and resumes the tool call.
+- `/scope deny` leaves scope unchanged and returns the denial to the agent.
+- `/stop` cancels the request and active work.
+
+The agent cannot grant itself authorization. Requests do not test the proposed
+hosts. Existing scope restrictions remain in effect until you approve. Ordinary
+chat messages do not approve a request. Only one request can be pending; it uses
+the standard five-minute tool timeout. Pending approvals are not restored when
+resuming a session; the agent must request authorization again.
+
+To replace the whole scope yourself, use `/scope HOST[,HOST]` while idle.
+
+## Persistent investigation goals
+
+A goal gives an interactive investigation an objective and completion criteria
+that survive conversation turns and session resume. Explicitly ask the agent
+to create a goal, or start one directly:
+
+```text
+/scope app.example.test
+/goal set Assess the supplied login flow and report evidence-backed access-control findings
+/goal
+/context goal
+/goal pause
+/goal resume
+```
+
+`/goal set OBJECTIVE` replaces the existing goal, uses that objective as its
+completion criterion, and starts work. For multiple detailed criteria, explicitly
+ask the agent to create a goal with those criteria. Goals never authorize new
+hosts: use `/scope` or approve a `request_scope` request separately.
+
+The agent has three tools:
+
+| Tool | Parameters | Behavior |
+| --- | --- | --- |
+| `create_goal` | `objective`, `criteria` (array of strings) | Create only when the user explicitly requests a goal or autonomous pursuit; refuses to replace an unfinished goal |
+| `get_goal` | None | Return the objective, criteria, status, current progress, evidence, and latest 20 updates |
+| `update_goal` | `status`, `progress`, optional `evidence` | Record progress, mark blocked, or submit completion evidence for independent review |
+
+While a goal is active, a final prose response does not automatically end the
+investigation. The runtime asks the agent to continue with an evidence-supported
+action or explicitly resolve the goal. Completion is accepted only after a separate reviewer
+checks every criterion against recorded observations. This is a model review of
+evidence, not independent execution or a guarantee of correctness; findings still
+require human review.
+
+`/goal pause` and `/stop` cancel current work and pause an active goal.
+`/goal resume` resumes a paused or blocked goal; `/continue` resumes an interrupted
+request or unfinished goal. `/goal clear` stops work and removes the current goal.
+`/interrupt` pauses the goal before starting the replacement request. Ordinary
+questions never create a goal automatically.
+
+The objective, criteria, progress and evidence are autosaved with the session.
+An active goal becomes paused when the session is restored. Reopening a session
+does **not** start model calls; explicitly resume when ready.
+
+Autonomous pursuit stays within the existing per-run iteration and tool-call
+limits. The runtime checks the cumulative session budget before each model call;
+one call can exceed the remaining estimated budget. Errors or run limits pause
+an unfinished goal. Repeated unresolved final answers also pause it:
+
+```toml
+[interaction]
+max_iterations = 20
+max_tool_calls = 50
+goal_max_idle_turns = 3
+goal_max_reviews = 3
+```
+
+`goal_max_idle_turns` counts final answers while the goal remains active within
+a run. It must be a positive integer. It does not replace the tool-loop guards
+or grant unlimited retries. A blocked goal requires user input and explicit
+resume; the model cannot resume it on its own.
+
+### Independent goal review
+
+`update_goal(status="complete", ...)` submits a completion claim. A separate
+reviewer gets a fresh conversation containing the goal, criteria, proposed
+evidence, and a bounded packet of recorded tool results, prior user input/tool
+results, and submitted findings. Claims and findings are labeled as such.
+The reviewer must return one result per criterion and cite recorded observation
+IDs for every satisfied criterion. Missing, malformed, or contradictory verdicts
+cannot complete the goal.
+
+- **Approved:** all criteria are satisfied; the runtime marks the goal complete.
+- **More work needed:** the goal remains active and reviewer feedback reaches the
+  investigator through the tool result and its next goal briefing.
+- **Review unavailable, error, or timeout:** the goal pauses without completing.
+- **Review limit reached:** the goal pauses for user inspection.
+
+`interaction.goal_max_reviews` defaults to 3 attempts per goal between explicit
+resumes. Review calls count toward the session's model spend and have a 90-second
+timeout. `/stop` cancels an in-flight review; a late verdict cannot override a
+paused goal. The latest review and its exact bounded observation packet are
+saved in the session; `/goal` and `/context goal` display the criterion results
+and feedback without repeating that entire packet.
+
+The reviewer uses a **separate provider instance** resolved through the `validator`
+role. It may use the same underlying model as the investigator, or a profile
+override:
+
+```toml
+[llm.overrides.validator]
+provider = "openai"
+model = "YOUR_REVIEW_MODEL"
+```
+
+Credentials and endpoint configuration still come from `.env`/environment.
+The reviewer has no tools and does not independently re-test a vulnerability;
+that remains the separate swarm finding validator's responsibility. Evidence
+packets are bounded (recent results, at most 16,000 characters per observation),
+with truncation labeled. If the supplied evidence cannot establish a criterion,
+the reviewer must ask for more work rather than assume it is satisfied.

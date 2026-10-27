@@ -1,5 +1,10 @@
 # fantasma benchmark
 
+For a small framework integration evaluation with exact HTTP evidence grading and a fixed
+negative control, start with [the ownership-boundary harness](launch/README.md).
+The broader benchmark below uses class-name matching and must not be treated as
+proof that individual vulnerability reports are valid.
+
 A reproducible benchmark that measures how well fantasma autonomously finds
 vulnerabilities, against a lab of **intentionally-vulnerable, legal-to-attack**
 targets.
@@ -21,8 +26,8 @@ For each target the runner reports:
 
 Scoring is **class-level and taxonomy-generous**: a finding counts for a class
 if its `vuln_type` *or* its title/description/evidence text matches the class or
-any alias (see `targets.json`). This is the honest way to grade an autonomous
-agent — it gets credit for finding an XSS even if it labelled it
+any alias (see `targets.json`). This is a permissive coverage proxy: it gives class credit for text mentioning
+XSS even if the report labels it
 `misconfiguration`, but only for classes actually present in the target.
 
 ## Requirements

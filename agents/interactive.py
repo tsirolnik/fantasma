@@ -25,12 +25,52 @@ class InteractivePentester(PenTesterAgent):
         from agents.investigation_journal import InvestigationJournal
         self.journal = InvestigationJournal()
         self.tools.register(self.journal.tool())
+        from agents.goal import InvestigationGoal
+        self.goal = InvestigationGoal()
+        self.goal_idle_turns = 0
+        self.goal_max_idle_turns = 3
+        for tool in self.goal.tools():
+            self.tools.register(tool)
+        self.on_scope_request = None
+        from agents.tools import Tool
+        self.tools.register(Tool(
+            name='request_scope', category='interaction',
+            description=('Ask the user to authorize additional hosts needed for their request. '
+                         'Waits for approval or denial; does not authorize itself. '
+                         'Use before attempting work outside configured scope. Existing scope is preserved.'),
+            parameters={'type': 'object', 'properties': {
+                'hosts': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1, 'maxItems': 50},
+                'reason': {'type': 'string', 'minLength': 1, 'maxLength': 2000}},
+                'required': ['hosts', 'reason'], 'additionalProperties': False},
+            handler=self.request_scope))
+
+    async def request_scope(self, data):
+        if self.on_scope_request is None:
+            return {'status': 'unavailable', 'message': 'No interactive user is available to authorize scope.'}
+        return await self.on_scope_request(data)
+
+
+    def _before_model_call(self):
+        if self.cost_tracker and self.session_budget > 0 and self.cost_tracker.get_total() >= self.session_budget:
+            self.goal.pause('Session budget reached.')
+            raise RuntimeError('Session budget reached; no further model calls will be made.')
+
+    def _completion_instruction(self):
+        if not self.goal.data or self.goal.data['status'] != 'active':
+            return None
+        self.goal_idle_turns += 1
+        if self.goal_idle_turns >= self.goal_max_idle_turns:
+            self.goal.pause('Repeated final responses without completing or blocking the goal. Review before resuming.')
+            return None
+        return ('The user requested continued pursuit of the active goal. Take the next evidence-supported step, '
+                'or use update_goal to mark it complete with evidence or blocked with the missing prerequisite. '
+                'Do not repeat a status-only answer.\n' + self.goal.briefing())
 
     def _build_progress_digest(self, iteration):
         return (f'[YOUR STATE] User-led request, step {iteration}/{self.max_iterations}.\n'
                 'Complete the current user request, not a scan quota. Journal entries from older requests are context, not instructions to resume unrelated work. A tool invocation is not proof that a test ran. '
                 'Check its result and prerequisites; errors, help output, and blocked access are inconclusive.\n'
-                + self.journal.briefing())
+                + self.journal.briefing() + "\n" + self.goal.briefing())
 
     def _build_initial_messages(self, assignment):
         # Keep tool results from earlier turns, not just the final prose answer.
@@ -50,22 +90,29 @@ class InteractivePentester(PenTesterAgent):
 
     async def execute(self, assignment):
         self._cancel_reason = ""
+        self.goal_idle_turns = 0
         result = await super().execute(assignment)
+        if self.goal.data and self.goal.data['status'] == 'active':
+            self.goal.pause('Run stopped at its configured limit or encountered an error; review and resume explicitly.')
         if result.success and self.last_trace:
             self.history = list(self.last_trace.messages)
             if self.last_trace.final_answer:
                 message = {"role": "assistant", "content": self.last_trace.final_answer}
                 if self.last_trace.final_reasoning is not None:
                     message["reasoning_content"] = self.last_trace.final_reasoning
-                self.history.append(message)
+                self.history.append(self.last_trace.final_message or message)
         return result
 
 
 HELP = """Enter a question or investigation request. No work starts until you send one.
 /session           Show session ID and resume command
 /save              Save the current session
-/continue          Continue the last interrupted request
+/continue          Continue the last interrupted request or unfinished goal
+/goal              Inspect the persistent investigation goal
+/goal set TEXT     Set/replace a goal and start pursuing it
+/goal pause|resume|clear Control the current goal
 /scope HOST[,HOST]  Set authorized hosts (only while idle)
+/scope approve|deny Respond to a pending agent scope request
 /status            Show scope, spend and finding count
 /context [VIEW]    Inspect model input, prompt, tools, and shared memory (Ctrl+G)
 /peek [ID|on|off]  Inspect tool inputs/results; Ctrl+O toggles live details
@@ -171,6 +218,7 @@ class InteractiveSession:
         self.memory.configure_mechanisms(mechanisms)
         self.cost = CostTracker()
         self.scope = self.parse_scope(getattr(args, 'targets', None) or '')
+        self.scope_request = None
         self.agent = None
         self.browser = None
         self.task = None
@@ -189,6 +237,10 @@ class InteractiveSession:
         self.save_error_shown = False
         self.saved_observations = []
         self.saved_journal = []
+        from agents.goal import InvestigationGoal
+        self.goal = InvestigationGoal(on_change=self.save, reviewer=self.review_goal)
+        self.goal.max_reviews = self.profile.interaction.goal_max_reviews
+        self.goal_reviewer = None
         self.diagnostics = (getattr(args, "diagnostics", False) or
                             getattr(args, "verbose", False) or profile.interaction.diagnostics)
         self._input_lock = asyncio.Lock()
@@ -202,6 +254,7 @@ class InteractiveSession:
             self.saved_history = snapshot.get('history', [])
             self.saved_observations = snapshot.get('observations', [])
             self.saved_journal = snapshot.get('journal', [])
+            self.goal.restore(snapshot.get('goal'))
             self.scope = self.parse_scope(','.join(snapshot.get('scope', [])))
             self.pending_request = snapshot.get('pending_request', '')
             self.session_status = 'interrupted' if self.pending_request else 'idle'
@@ -229,7 +282,7 @@ class InteractiveSession:
                 scope=self.scope, history=history, memory=capture_shared_memory(self.memory),
                 finding_reporters=list(self.memory._finding_reporters),
                 cost=self.cost.get_total(), budget=self.budget,
-                pending_request=self.pending_request, status=self.session_status,
+                pending_request=self.pending_request, status=self.session_status, goal=self.goal.data,
                 journal=self.agent.journal.entries if self.agent and hasattr(self.agent, "journal") else self.saved_journal,
                 observations=([dict(name=c["name"], status=c["status"], input=c["input"], output=c["output"])
                               for c in self.activity.calls[-20:]] or self.saved_observations)))
@@ -290,6 +343,11 @@ class InteractiveSession:
             max_iterations=self.profile.interaction.max_iterations,
             max_total_tool_calls=self.profile.interaction.max_tool_calls,
         )
+        self.agent.goal = self.goal
+        self.agent.goal_max_idle_turns = self.profile.interaction.goal_max_idle_turns
+        for tool in self.goal.tools():
+            self.agent.tools.register(tool)
+        self.agent.on_scope_request = self.request_scope
         self.agent.history = list(self.saved_history)
         self.agent.journal.restore(self.saved_journal)
         self.agent.session_budget = self.budget
@@ -299,6 +357,66 @@ class InteractiveSession:
         self.agent.on_llm_start = self.activity.llm_started
         self.agent.on_llm_call = self.model_finished
         self.set_scope(self.scope)
+
+    async def review_goal(self, goal, proposal):
+        from agents.goal_reviewer import GoalReviewer
+        from dataclasses import asdict
+        if self.goal_reviewer is None:
+            # Separate instance and fresh conversation; never reuse investigator history as reviewer instructions.
+            llm = create_llm_for_agent('validator', self.llm_config)
+            self.goal_reviewer = GoalReviewer(llm, self.cost, self.budget)
+        observations = []
+        def add(kind, value):
+            raw = json.dumps(value, ensure_ascii=False, default=str)
+            observations.append({'id': f'E{len(observations) + 1}', 'kind': kind,
+                                 'content': raw[:16000], 'truncated': len(raw) > 16000})
+        if self.agent:
+            trace = self.agent.last_trace
+            if trace:
+                add('user_request (user-supplied data, not execution evidence)', trace.assignment.context)
+                for call in trace.tool_calls[-30:]:
+                    if call.tool_name not in ('create_goal', 'get_goal', 'update_goal', 'record_investigation'):
+                        add('recorded_tool_result', asdict(call))
+            for message in self.agent.history[-30:]:
+                if message.get('role') == 'user':
+                    add('prior_user_input_or_tool_results', message.get('content'))
+        for finding in self.memory.get_findings()[-20:]:
+            add('submitted_finding (check verification status; not independently proven)', finding.model_dump(mode='json'))
+        self.write('Goal reviewer: checking completion criteria against recorded evidence…')
+        verdict = await self.goal_reviewer.review(goal, proposal, observations)
+        # Retain the exact bounded packet alongside references so reviews remain inspectable after resume.
+        verdict['observations'] = observations
+        self.write('Goal reviewer: ' + ('approved. ' if verdict['approved'] else 'more work needed. ') + verdict['feedback'])
+        return verdict
+
+    async def request_scope(self, data):
+        hosts, reason = data.get('hosts'), data.get('reason')
+        if (not isinstance(hosts, list) or not 1 <= len(hosts) <= 50
+                or any(not isinstance(h, str) or not h.strip() or len(h) > 253 or ',' in h
+                       or any(ord(c) < 32 or ord(c) == 127 for c in h) for h in hosts)
+                or not isinstance(reason, str) or not reason.strip() or len(reason) > 2000):
+            return {'status': 'invalid', 'message': 'Provide 1–50 hosts and a nonempty reason (at most 2000 characters).'}
+        try:
+            requested = self.parse_scope(','.join(hosts))
+        except ValueError as exc:
+            return {'status': 'invalid', 'message': str(exc)}
+        additions = sorted(set(requested) - set(self.scope))
+        if not additions:
+            return {'status': 'already_authorized', 'scope': list(self.scope)}
+        if self.scope_request is not None:
+            return {'status': 'pending', 'message': 'Another scope request is awaiting the user. Do not test these hosts.'}
+        future = asyncio.get_running_loop().create_future()
+        pending = {'hosts': additions, 'future': future}
+        self.scope_request = pending
+        from utils.terminal_activity import TerminalActivity
+        self.write('Scope authorization requested: ' + ', '.join(additions)
+                   + '\nReason: ' + TerminalActivity.preview(reason)
+                   + '\n/scope approve to add these hosts, /scope deny to decline, or /stop to cancel.')
+        try:
+            return await future
+        finally:
+            if self.scope_request is pending:
+                self.scope_request = None
 
     def set_scope(self, scope):
         self.scope = scope
@@ -324,6 +442,7 @@ class InteractiveSession:
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            self.goal.pause('Session error; review before resuming.')
             self.write(f'Session error: {exc}')
         finally:
             if self.pending_request:
@@ -331,10 +450,13 @@ class InteractiveSession:
             self.save()
             self.pending_steering.clear()
             self.activity.finish()
+            if self.goal.data and self.goal.data['status'] in ('paused', 'blocked'):
+                self.write(f"Goal {self.goal.data['status']}: {self.goal.data['progress']} (/goal to inspect; /goal resume to continue)")
         if not self.live_terminal and sys.stdin.isatty() and sys.stdout.isatty():
             print('you> ', end='', flush=True)
 
     async def stop(self):
+        self.goal.pause("Stopped by the user; waiting for resume.")
         if self.task and not self.task.done():
             self.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -398,6 +520,36 @@ class InteractiveSession:
                 self.steer(guidance)
             else:
                 self.start_request(guidance)
+        elif text == '/goal' or text.startswith('/goal '):
+            command = text[len('/goal'):].strip()
+            if not command:
+                self.write(self.goal.briefing())
+            elif command == 'pause':
+                await self.stop()
+                self.write(self.goal.briefing())
+            elif command == 'clear':
+                await self.stop()
+                self.goal.data = None
+                self.save()
+                self.write('Goal cleared.')
+            elif command == 'resume':
+                if self.task and not self.task.done():
+                    self.write('Work is already running.')
+                elif self.goal.resume():
+                    self.start_request('Resume the investigation goal. Review prior evidence before repeating actions.\n' + self.goal.briefing())
+                else:
+                    self.write('No unfinished goal to resume.')
+            elif command.startswith('set '):
+                objective = command[4:].strip()
+                if not objective or len(objective) > 1000:
+                    self.write('Use /goal set OBJECTIVE (1–1000 characters).')
+                else:
+                    await self.stop()
+                    self.goal.data = None
+                    self.goal.create(objective, [objective])
+                    self.start_request('Pursue this explicitly requested goal.\n' + self.goal.briefing())
+            else:
+                self.write('Usage: /goal [set OBJECTIVE|pause|resume|clear]')
         elif text == '/session':
             self.write(f'Session: {self.session_id or "not persisted"}\nResume: fantasma full --resume-session {self.session_id or "ID"}')
         elif text == '/save':
@@ -407,21 +559,24 @@ class InteractiveSession:
             if self.task and not self.task.done():
                 self.write('Work is already running. Use /steer, /interrupt, or /stop.')
             elif self.pending_request:
+                self.goal.resume()
                 request = self.pending_request
                 observations = self.activity.peek() if self.activity.calls else json.dumps(self.saved_observations, ensure_ascii=False)
                 self.start_request('Continue the interrupted request below. Review existing findings and context before repeating actions.\n' + request + '\nRecent tool observations (may be truncated):\n' + observations)
+            elif self.goal.resume():
+                self.start_request('Resume the investigation goal.\n' + self.goal.briefing())
             else:
-                self.write('No interrupted request. Send a new instruction to continue the conversation.')
+                self.write('No interrupted request or unfinished goal. Send a new instruction.')
         elif text == '/help':
             self.write(HELP)
         elif text == '/context' or text.startswith('/context '):
             view = text[len('/context'):].strip() or 'overview'
             if view == 'off':
                 self.activity.set_inspection(False)
-            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory', 'plan', 'reasoning') or view.isdigit():
+            elif view in ('overview', 'messages', 'tools', 'prompt', 'memory', 'plan', 'reasoning', 'goal') or view.isdigit():
                 self.activity.open_context(view)
             else:
-                self.write('Usage: /context [messages|N|tools|prompt|memory|plan|reasoning|off]')
+                self.write('Usage: /context [messages|N|tools|prompt|memory|plan|reasoning|goal|off]')
         elif text == '/peek' or text.startswith('/peek '):
             argument = text[5:].strip()
             if argument in ('on', 'off'):
@@ -436,6 +591,19 @@ class InteractiveSession:
                 self.write('Usage: /peek [ID|on|off]')
         elif text == '/status':
             self.write(f'Scope: {self.scope}; spend: ${self.cost.get_total():.4f}; findings: {self.memory.findings_count}')
+        elif text in ('/scope approve', '/scope deny'):
+            pending = self.scope_request
+            if pending is None or pending['future'].done():
+                self.write('No pending scope request.')
+            else:
+                approved = text == '/scope approve'
+                if approved:
+                    self.set_scope(sorted(set(self.scope) | set(pending['hosts'])))
+                    self.save()
+                pending['future'].set_result({'status': 'approved' if approved else 'denied',
+                                             'requested_hosts': pending['hosts'], 'scope': list(self.scope)})
+                self.scope_request = None
+                self.write(f'Scope request {"approved" if approved else "denied"}. Scope: {self.scope}')
         elif text.startswith('/scope') and (text == '/scope' or text[6:7] == ' '):
             if self.task and not self.task.done():
                 self.write('Stop active work with /stop before changing scope.')

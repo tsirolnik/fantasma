@@ -36,8 +36,8 @@ class RenderedLexer(Lexer):
 
 
 class TerminalConsole:
-    CONTEXT_VIEWS = ('overview', 'plan', 'reasoning', 'messages', 'memory', 'tools', 'prompt')
-    COMMANDS = ('/help', '/scope', '/status', '/session', '/save', '/continue',
+    CONTEXT_VIEWS = ('overview', 'goal', 'plan', 'reasoning', 'messages', 'memory', 'tools', 'prompt')
+    COMMANDS = ('/help', '/goal', '/scope', '/status', '/session', '/save', '/continue',
                 '/context', '/peek', '/steer', '/interrupt', '/stop', '/quit')
 
     def __init__(self, session, *, input=None, output=None):

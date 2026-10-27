@@ -98,6 +98,8 @@ class Interaction:
     mode: str = "batch"  # batch | terminal; dashboard is independent
     max_iterations: int = 20
     max_tool_calls: int = 50
+    goal_max_idle_turns: int = 3
+    goal_max_reviews: int = 3
     diagnostics: bool = False
 
     def __post_init__(self):
@@ -105,7 +107,7 @@ class Interaction:
             raise ValueError("interaction.diagnostics must be a boolean")
         if self.mode not in ("batch", "terminal"):
             raise ValueError("interaction.mode must be batch or terminal")
-        for name in ("max_iterations", "max_tool_calls"):
+        for name in ("max_iterations", "max_tool_calls", "goal_max_idle_turns", "goal_max_reviews"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"interaction.{name} must be a positive integer")
 

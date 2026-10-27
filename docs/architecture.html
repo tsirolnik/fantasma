@@ -63,6 +63,10 @@ flowchart LR
     MCP --&gt; TOOLS
     TOOLS --&gt; AGENT
     ENV[".env + process environment&lt;br/&gt;Provider and model defaults"] --&gt; PROFILE
+    AGENT --&gt; GOAL["Optional persistent goal&lt;br/&gt;Criteria, progress, evidence&lt;br/&gt;Continue until resolved or limited"]
+    GOAL --&gt; REVIEW["Independent goal reviewer&lt;br/&gt;Validator model, fresh context&lt;br/&gt;Recorded evidence per criterion"]
+    REVIEW --&gt;|"Gaps: continue; approved: complete"| GOAL
+    GOAL --&gt; SAVE
     AGENT --&gt; HISTORY["Conversation, native reasoning&lt;br/&gt;Decision journal + shared memory"]
     HISTORY --&gt; SAVE["Atomic session snapshots&lt;br/&gt;History, scope, findings, cost, pending request"]
     SAVE --&gt; RESUME["Resume by ID or latest&lt;br/&gt;Restore context; wait for user"]
@@ -127,7 +131,7 @@ validation run concurrently with that loop.
 
 ```mermaid
 flowchart TB
-    CONTEXT["Rebuild worker context&lt;br/&gt;Methodology, scope, budget&lt;br/&gt;Facts, leads, last results"] --&gt; LLM["Worker LLM chooses next action"]
+    CONTEXT["Rebuild worker context&lt;br/&gt;Methodology, scope, budget&lt;br/&gt;Facts, leads, last results&lt;br/&gt;Retained thinking + turn history"] --&gt; LLM["Worker LLM chooses next action"]
     LLM --&gt;|"Complete or no useful next step"| DONE["Return findings and uncertainty"]
     LLM --&gt;|"Evidence-supported action"| TOOL["Tool registry + execution checks"]
     TOOL --&gt; EXEC["HTTP / browser / Docker / code&lt;br/&gt;Interact with target systems"]
@@ -165,7 +169,9 @@ flowchart TB
 
 - Tool outcomes update observations, repeated-endpoint tracking and distilled
   facts/leads. The next worker prompt combines the selected methodology with
-  rebuilt state. Workers can conclude when their task is complete or no useful
+  rebuilt state and retained turn history (`llm.retain_thinking = true` by default).
+  Reasoning-bearing history bypasses compression; provider context limits still apply.
+  Workers can conclude when their task is complete or no useful
   evidence-supported action remains.
 - Director reviews run every second monitor tick and return redirects and score adjustments. Team monitors apply
   them; directives enter worker notes for context distillation.

@@ -38,6 +38,10 @@ flowchart LR
     MCP --> TOOLS
     TOOLS --> AGENT
     ENV[".env + process environment<br/>Provider and model defaults"] --> PROFILE
+    AGENT --> GOAL["Optional persistent goal<br/>Criteria, progress, evidence<br/>Continue until resolved or limited"]
+    GOAL --> REVIEW["Independent goal reviewer<br/>Validator model, fresh context<br/>Recorded evidence per criterion"]
+    REVIEW -->|"Gaps: continue; approved: complete"| GOAL
+    GOAL --> SAVE
     AGENT --> HISTORY["Conversation, native reasoning<br/>Decision journal + shared memory"]
     HISTORY --> SAVE["Atomic session snapshots<br/>History, scope, findings, cost, pending request"]
     SAVE --> RESUME["Resume by ID or latest<br/>Restore context; wait for user"]
@@ -102,7 +106,7 @@ validation run concurrently with that loop.
 
 ```mermaid
 flowchart TB
-    CONTEXT["Rebuild worker context<br/>Methodology, scope, budget<br/>Facts, leads, last results"] --> LLM["Worker LLM chooses next action"]
+    CONTEXT["Rebuild worker context<br/>Methodology, scope, budget<br/>Facts, leads, last results<br/>Retained thinking + turn history"] --> LLM["Worker LLM chooses next action"]
     LLM -->|"Complete or no useful next step"| DONE["Return findings and uncertainty"]
     LLM -->|"Evidence-supported action"| TOOL["Tool registry + execution checks"]
     TOOL --> EXEC["HTTP / browser / Docker / code<br/>Interact with target systems"]
@@ -140,7 +144,9 @@ flowchart TB
 
 - Tool outcomes update observations, repeated-endpoint tracking and distilled
   facts/leads. The next worker prompt combines the selected methodology with
-  rebuilt state. Workers can conclude when their task is complete or no useful
+  rebuilt state and retained turn history (`llm.retain_thinking = true` by default).
+  Reasoning-bearing history bypasses compression; provider context limits still apply.
+  Workers can conclude when their task is complete or no useful
   evidence-supported action remains.
 - Director reviews run every second monitor tick and return redirects and score adjustments. Team monitors apply
   them; directives enter worker notes for context distillation.

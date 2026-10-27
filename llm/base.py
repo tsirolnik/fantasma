@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 class LLMProvider(ABC):
     """Base class for LLM providers."""
 
+    retain_thinking: bool = True
+
     @abstractmethod
     async def analyze(self, prompt: str, context: str = "") -> str:
         """Analyze content with the LLM. Returns the LLM's text response."""

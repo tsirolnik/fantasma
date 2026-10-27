@@ -61,7 +61,7 @@ class LLMResolutionTests(unittest.TestCase):
                 for path in PROFILES_DIR.glob('*.toml'):
                     with self.subTest(profile=path.stem):
                         raw = tomllib.loads(path.read_text())
-                        self.assertEqual(raw['llm'], {'source': 'env'})
+                        self.assertEqual(raw['llm'], {'source': 'env', 'retain_thinking': True})
                         config = load_profile(str(path)).llm
                         self.assertEqual(config.director.provider, 'openai')
                         self.assertEqual(config.director.model, 'director-test')

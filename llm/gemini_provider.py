@@ -138,6 +138,7 @@ class GeminiProvider(LLMProvider):
             max_output_tokens=max_tokens,
             thinking_config=types.ThinkingConfig(
                 thinking_budget=2048,
+                include_thoughts=True,
             ),
         )
 
@@ -172,6 +173,14 @@ class GeminiProvider(LLMProvider):
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content")
+
+            payload = msg.get("_provider_history")
+            if role == "assistant" and payload and payload["provider"] == "GeminiProvider":
+                for block in content if isinstance(content, list) else []:
+                    if block.get("type") == "tool_use":
+                        self._pending_tool_names[block["id"]] = block["name"]
+                contents.append(types.Content.model_validate(payload["data"]))
+                continue
 
             # Plain text message
             if isinstance(content, str):
@@ -386,6 +395,7 @@ class GeminiProvider(LLMProvider):
                 "output": output_tokens,
             },
         }
+        result["history"] = candidate.content.model_dump(mode="json", exclude_none=True)
         if thinking:
             result["thinking"] = thinking
         return result

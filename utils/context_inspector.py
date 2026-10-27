@@ -1,6 +1,7 @@
 """Read-only views of assembled model input and session state."""
 from utils.terminal_activity import TerminalActivity
 from config import get_settings
+from llm.reasoning import reasoning_text
 
 
 class ContextInspector:
@@ -13,7 +14,7 @@ class ContextInspector:
     def capture(self, messages, tools):
         self.messages = [{'role': str(message.get('role', '?')),
                           'content': TerminalActivity.preview(message.get('content', '')),
-                          'reasoning_content': TerminalActivity.preview(message.get('reasoning_content', ''))}
+                          'reasoning_content': TerminalActivity.preview(reasoning_text(message))}
                          for message in messages]
         self.message_sizes = [len(str(m.get('content', ''))) for m in messages]
         self.tools = [{'name': str(t.get('name', '?')), 'schema': TerminalActivity.preview(t)} for t in tools]
@@ -25,8 +26,8 @@ class ContextInspector:
         messages = self.messages if self.messages is not None else history
         label = 'Last assembled model request' if self.messages is not None else 'Saved conversation (no model request yet)'
         if view == 'reasoning':
-            entries = [f"Message {i} · provider-returned reasoning\n" + TerminalActivity.preview(m['reasoning_content'])
-                       for i, m in enumerate(messages, 1) if m.get('reasoning_content')]
+            entries = [f"Message {i} · provider-returned reasoning\n" + TerminalActivity.preview(reasoning_text(m))
+                       for i, m in enumerate(messages, 1) if reasoning_text(m)]
             return label + '\nReasoning is model-generated context, not verified evidence.\n' + ('\n\n'.join(entries) or 'No provider reasoning captured in this context. Older sessions cannot recover discarded reasoning.')
         if view.isdigit():
             index = int(view) - 1
@@ -44,6 +45,8 @@ class ContextInspector:
         if view == 'prompt':
             return 'Current agent system instructions (also embedded in interactive requests)\n' + (
                 TerminalActivity.preview(agent.system_prompt) if agent and hasattr(agent, 'system_prompt') else 'Agent is not initialized. No prompt has been assembled.')
+        if view == 'goal':
+            return s.goal.briefing()
         if view == 'plan':
             journal = agent.journal.entries if agent and hasattr(agent, 'journal') else s.saved_journal
             return 'Decision journal (agent-recorded observations, not independently verified)\n' + TerminalActivity.preview(journal)
@@ -64,5 +67,5 @@ class ContextInspector:
                 f'{len(messages)} messages · {chars:,} content characters · {len(self.tools)} tool schemas\n'
                 f'{s.memory.findings_count} findings · {len(s.memory._entries)} shared notes\n'
                 'Views: /context messages | /context N | /context tools\n'
-                '       /context prompt | /context memory | /context plan | /context reasoning\n'
+                '       /context prompt | /context memory | /context plan | /context reasoning | /context goal\n'
                 'Read-only previews; redacted and bounded. Reasoning view shows only provider-returned text.')

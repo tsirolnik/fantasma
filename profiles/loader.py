@@ -58,6 +58,9 @@ def _resolve_llm(raw: dict) -> LLMConfigMap:
     if source != "env":
         raise ValueError(f"Unsupported llm.source: {source!r}; expected 'env' (.env/environment)")
     cfg = configured_llm_map()
+    cfg.retain_thinking = raw.get("retain_thinking", True)
+    if type(cfg.retain_thinking) is not bool:
+        raise ValueError("llm.retain_thinking must be a boolean")
     def merge(base, spec):
         provider = spec.get("provider", base.provider)
         model = spec.get("model", "" if provider != base.provider else base.model)

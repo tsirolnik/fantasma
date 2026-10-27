@@ -34,6 +34,7 @@ class LLMConfigMap:
     default_worker: AgentLLMConfig = field(
         default_factory=lambda: AgentLLMConfig(provider="ollama")
     )
+    retain_thinking: bool = True
     overrides: dict[str, AgentLLMConfig] = field(default_factory=dict)
 
     def get_config(self, agent_name: str) -> AgentLLMConfig:
@@ -108,6 +109,7 @@ def create_llm_for_agent(
 
     try:
         provider = get_provider(cfg.provider)
+        provider.retain_thinking = config_map.retain_thinking
         logger.info(
             "Created %s provider for agent '%s' (model: %s)",
             cfg.provider,
@@ -121,6 +123,7 @@ def create_llm_for_agent(
         if cfg.provider != fallback_cfg.provider:
             try:
                 provider = get_provider(fallback_cfg.provider)
+                provider.retain_thinking = config_map.retain_thinking
                 logger.warning(
                     "Agent '%s': %s unavailable, falling back to %s",
                     agent_name, cfg.provider, fallback_cfg.provider,

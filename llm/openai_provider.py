@@ -213,6 +213,11 @@ class OpenAICompatibleProvider(LLMProvider):
             },
         }
 
+        native = msg.model_dump(mode="json", exclude_none=True) if hasattr(msg, "model_dump") else vars(msg).copy()
+        fields = ("content", "tool_calls", "reasoning_content", "reasoning", "reasoning_details")
+        if thinking or any(k in native for k in ("reasoning_content", "reasoning", "reasoning_details")):
+            result["history"] = {k: v for k, v in native.items() if k in fields}
+
         # Only replay a native API field, never synthesize it from inline <think> text.
         if isinstance(getattr(msg, "reasoning_content", None), str):
             result["reasoning_content"] = msg.reasoning_content
@@ -272,6 +277,7 @@ class OpenAICompatibleProvider(LLMProvider):
         """
         normalized = []
         for msg in messages:
+            payload = msg.get("_provider_history")
             content = msg.get("content")
             reasoning = ({"reasoning_content": msg["reasoning_content"]}
                          if msg.get("role") == "assistant" and isinstance(msg.get("reasoning_content"), str) else {})
@@ -380,6 +386,14 @@ class OpenAICompatibleProvider(LLMProvider):
             # Fallback
             normalized.append({"role": msg.get("role", "user"), "content": str(content) if content else "", **reasoning})
 
+        assistants = iter(m for m in normalized if m.get("role") == "assistant")
+        for msg in messages:
+            if msg.get("role") != "assistant":
+                continue
+            out = next(assistants, None)
+            payload = msg.get("_provider_history")
+            if out is not None and payload and payload["provider"] == "OpenAICompatibleProvider":
+                out.update({k: v for k, v in payload["data"].items() if k != "tool_calls"})
         return OpenAICompatibleProvider._sanitize_messages(normalized)
 
     @staticmethod

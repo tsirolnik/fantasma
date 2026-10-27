@@ -52,6 +52,7 @@ class AgentTrace:
     total_duration_ms: float = 0.0
     final_answer: str = ""
     final_reasoning: str | None = None
+    final_message: dict | None = None
     exit_reason: str = ""  # llm_concluded | guardrail | max_iterations | exception
 
 
@@ -341,6 +342,13 @@ class ToolAgent(BaseAgent):
             except Exception:
                 logger.exception("on_agent_done hook error")
 
+    def _before_model_call(self):
+        """Optional runtime checks for specialized interactive agents."""
+
+    def _completion_instruction(self):
+        """Return a continuation instruction, or None to allow a final response."""
+        return None
+
     async def _run_with_tools(
         self, assignment: TaskAssignment, trace: AgentTrace
     ) -> tuple[Any, str]:
@@ -365,6 +373,7 @@ class ToolAgent(BaseAgent):
 
         for iteration in range(self.max_iterations):
             trace.iterations = iteration + 1
+            self._before_model_call()
 
             # Pause check — block until resumed if pipeline is paused
             if self._pause_event is not None:
@@ -373,13 +382,13 @@ class ToolAgent(BaseAgent):
                 await self._pause_event.wait()
 
             if self.context_mode:
-                # Rebuild the WHOLE briefing from live state every turn. The block
-                # is the memory — no accumulated/compressed history, no separate
-                # digest/directive injections (all folded into the assembled block).
-                messages = [{
-                    "role": "user",
-                    "content": await self._assemble_turn_context(iteration + 1),
-                }]
+                # Refresh live state and directives while preserving prior turns
+                # when thinking retention is enabled.
+                briefing = {"role": "user", "content": await self._assemble_turn_context(iteration + 1)}
+                if getattr(self.llm, "retain_thinking", True):
+                    messages = [briefing, *messages[1:]]
+                else:
+                    messages = [briefing]
             else:
                 # Drain director redirects — add to sticky list with TTL
                 while not self._directive_queue.empty():
@@ -427,15 +436,14 @@ class ToolAgent(BaseAgent):
 
             # Call LLM with tools
             import time as _time
-            _ctx_chars = sum(len(str(m.get("content", ""))) for m in messages)
+            _ctx_chars = sum(len(str(m)) for m in messages)
             _model_name = getattr(self.llm, "model", "?")
             logger.info(
                 "%s: LLM call #%d — %d msgs, ~%dK chars, model=%s",
                 self.name, iteration + 1, len(messages), _ctx_chars // 1000, _model_name,
             )
-            request_messages = messages if getattr(self.llm, "supports_reasoning_history", False) else [
-                {k: v for k, v in m.items() if k != "reasoning_content"} for m in messages
-            ]
+            from llm.reasoning import prepare_messages
+            request_messages = prepare_messages(messages, self.llm)
             if self.on_context_snapshot is not None:
                 try:
                     self.on_context_snapshot(request_messages, tool_schemas)
@@ -455,7 +463,8 @@ class ToolAgent(BaseAgent):
             _llm_ms = int((_time.monotonic() - _llm_start) * 1000)
             logger.info("%s: LLM responded in %dms", self.name, _llm_ms)
 
-            content = response["content"]
+            content = [b.model_dump(mode="json", exclude_none=True) if hasattr(b, "model_dump") else b
+                       for b in response["content"]]
 
             # Record cost via the provider's own pricing
             usage = response.get("usage", {})
@@ -552,6 +561,12 @@ class ToolAgent(BaseAgent):
 
             reasoning_metadata = ({"reasoning_content": response["reasoning_content"]}
                                   if isinstance(response.get("reasoning_content"), str) else {})
+            if getattr(self.llm, "retain_thinking", True):
+                if response.get("history") is not None:
+                    reasoning_metadata["_provider_history"] = {
+                        "provider": type(self.llm).__name__, "data": response["history"]}
+            else:
+                reasoning_metadata = {}
 
             # Broadcast LLM call event (prefer thinking content over response text)
             thinking = response.get("thinking", "") or ""
@@ -592,7 +607,7 @@ class ToolAgent(BaseAgent):
                     "%s: malformed tool call at iteration %d — retrying without compression",
                     self.name, iteration + 1,
                 )
-                messages.append({"role": "assistant", "content": _full_text, **reasoning_metadata})
+                messages.append({"role": "assistant", "content": content, **reasoning_metadata})
                 messages.append({"role": "user", "content": (
                     "Your tool call was malformed. Please try again — use exact "
                     "parameter names from the tool schema and ensure valid JSON."
@@ -625,7 +640,7 @@ class ToolAgent(BaseAgent):
                 # Before finishing, check for pending director directives
                 if not self._directive_queue.empty():
                     if text_parts:
-                        messages.append({"role": "assistant", "content": "\n".join(text_parts), **reasoning_metadata})
+                        messages.append({"role": "assistant", "content": content, **reasoning_metadata})
                     while not self._directive_queue.empty():
                         try:
                             directive = self._directive_queue.get_nowait()
@@ -642,7 +657,7 @@ class ToolAgent(BaseAgent):
                         "%s: tried to conclude at iteration %d — pushing back",
                         self.name, trace.iterations,
                     )
-                    messages.append({"role": "assistant", "content": "\n".join(text_parts) if text_parts else "I'll wrap up.", **reasoning_metadata})
+                    messages.append({"role": "assistant", "content": content, **reasoning_metadata})
                     capability = getattr(self, "capability", "")
                     if "valid" in capability:
                         messages.append({"role": "user", "content": (
@@ -659,10 +674,17 @@ class ToolAgent(BaseAgent):
                         )})
                     continue
 
+                continuation = self._completion_instruction()
+                if continuation:
+                    messages.append({"role": "assistant", "content": content, **reasoning_metadata})
+                    messages.append({"role": "user", "content": continuation})
+                    continue
+
                 # LLM is done — return the final text
                 final_text = "\n".join(text_parts)
                 result = self._parse_final_answer(final_text)
                 trace.final_reasoning = reasoning_metadata.get("reasoning_content")
+                trace.final_message = {"role": "assistant", "content": content, **reasoning_metadata}
                 trace.exit_reason = "llm_concluded"
                 trace.messages = messages
                 logger.info(
@@ -901,8 +923,8 @@ class ToolAgent(BaseAgent):
             tool_results = [r for r in tool_results if r is not None]
 
             if self.context_mode:
-                # Don't accumulate history — capture this turn's output for the
-                # NEXT turn's briefing (recent_results) and feed the distiller.
+                # Feed recent results to the next briefing and the distiller.
+                # Retention also keeps the original exchange below.
                 parts = []
                 for blk, res in zip(tool_blocks, tool_results):
                     name = blk.get("name", "?")
@@ -917,7 +939,8 @@ class ToolAgent(BaseAgent):
                 _txt = "\n".join(text_parts).strip() if text_parts else ""
                 if _txt:
                     self._raw_notes = (self._raw_notes + f"\n[note] {_txt[:500]}")[-12000:]
-                continue  # skip history append + compression entirely
+                if not getattr(self.llm, "retain_thinking", True):
+                    continue  # compact briefing-only mode
 
             # Append assistant message + tool results
             messages.append({"role": "assistant", "content": content, **reasoning_metadata})
@@ -1024,6 +1047,9 @@ class ToolAgent(BaseAgent):
         user prompt) + the last keep_recent*2 messages, and compress everything
         in between.
         """
+        from llm.reasoning import has_reasoning
+        if getattr(self.llm, "retain_thinking", True) and has_reasoning(messages):
+            return messages
         # messages[0] = initial user prompt
         # messages[1:] = pairs of (assistant, user-tool-results)
         total_pairs = (len(messages) - 1) // 2
@@ -1096,6 +1122,9 @@ class ToolAgent(BaseAgent):
 
     async def _compress_messages_llm(self, messages: list[dict], keep_recent: int) -> list[dict]:
         """LLM-powered compression: summarize old tool interactions into a concise narrative."""
+        from llm.reasoning import has_reasoning
+        if getattr(self.llm, "retain_thinking", True) and has_reasoning(messages):
+            return messages
         total_pairs = (len(messages) - 1) // 2
         if total_pairs <= keep_recent:
             return messages

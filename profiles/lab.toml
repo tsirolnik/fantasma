@@ -18,5 +18,6 @@ worker_mode = "auto"
 max_scan_targets = 50
 
 [llm]
+retain_thinking = true
 # Load providers and models from .env (process environment takes precedence).
 source = "env"
