@@ -44,7 +44,7 @@ If you want to use the investigator before writing an extension:
 ```bash
 test -f .env || cp .env.example .env
 python -m playwright install chromium
-docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
+fantasma tools build
 ```
 
 Configure your provider in `.env`. All shipped profiles explicitly inherit it.
@@ -114,8 +114,8 @@ From the repository root, run:
 ```bash
 python - <<'PY'
 from types import SimpleNamespace
-from profiles.loader import load_profile
-from memory.mechanisms import build_mechanisms
+from fantasma.profiles.loader import load_profile
+from fantasma.memory.mechanisms import build_mechanisms
 
 profile = load_profile('../my-fantasma-profile/profile.toml')
 mechanism, = build_mechanisms(profile.mechanisms)
@@ -173,7 +173,7 @@ Install and start Docker with Compose support. Verify it and build the tool imag
 ```bash
 docker info
 docker compose version
-docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
+fantasma tools build
 python -m playwright install chromium
 ```
 

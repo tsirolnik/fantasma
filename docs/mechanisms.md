@@ -47,8 +47,8 @@ models or network access first:
 ```bash
 python - <<'PY'
 from types import SimpleNamespace
-from profiles.loader import load_profile
-from memory.mechanisms import build_mechanisms
+from fantasma.profiles.loader import load_profile
+from fantasma.memory.mechanisms import build_mechanisms
 
 profile = load_profile('examples/mechanisms/profile.toml')
 mechanism, = build_mechanisms(profile.mechanisms)
@@ -81,7 +81,7 @@ Run-end hooks instead use `memory.add_score(agent_id, delta, reason)` explicitly
 `accepted=True` means accepted into shared memory, **not independently verified**
 by the Validator. A duplicate has `accepted=False, reason=None`; other rejected
 submissions have a reason. Findings expose fields such as `target`, `vuln_type`,
-`severity`, and `url`; the finding model is in `models/finding.py`. Claim keys can be
+`severity`, and `url`; the finding model is in `fantasma/models/finding.py`. Claim keys can be
 namespaced (for example `scan:example.test`); do not assume they are URLs.
 
 ## State, order and boundaries
@@ -145,7 +145,7 @@ only. Use a profile for custom classes and parameters. An empty profile list exp
 `--mechanisms`, the `MECHANISMS` environment setting supplies the list.
 
 See [architecture](architecture.md) for the component flow and
-[`memory/mechanisms.py`](../memory/mechanisms.py) for complete built-in behavior.
+[`fantasma/memory/mechanisms.py`](../fantasma/memory/mechanisms.py) for complete built-in behavior.
 
 ## Control when a mechanism applies
 

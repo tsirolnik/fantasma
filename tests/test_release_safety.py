@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import aiohttp
 from aiohttp.test_utils import TestClient, TestServer
-from config import Settings
-from agents.tool_agent import ToolAgent
-from llm.openai_provider import OpenAICompatibleProvider
-from utils.docker_runner import run_container
-from web.server import create_app
+from fantasma.config import Settings
+from fantasma.agents.tool_agent import ToolAgent
+from fantasma.llm.openai_provider import OpenAICompatibleProvider
+from fantasma.utils.docker_runner import run_container
+from fantasma.web.server import create_app
 
 
 class DashboardTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.settings_patch = patch('web.server.get_settings', return_value=Settings(_env_file=None))
+        self.settings_patch = patch('fantasma.web.server.get_settings', return_value=Settings(_env_file=None))
         self.settings_patch.start()
         self.addCleanup(self.settings_patch.stop)
         self.bridge = SimpleNamespace(
@@ -107,8 +107,8 @@ class ScopeTests(unittest.TestCase):
 class PricingTests(unittest.TestCase):
     def test_paid_endpoint_rejects_missing_and_zero_prices_before_client_creation(self):
         for values in ({}, {'openai_input_price': 1}, {'openai_input_price': 0, 'openai_output_price': 0}):
-            with patch('llm.openai_provider.get_settings', return_value=Settings(_env_file=None, **values)), \
-                 patch('llm.openai_provider.AsyncOpenAI') as client:
+            with patch('fantasma.llm.openai_provider.get_settings', return_value=Settings(_env_file=None, **values)), \
+                 patch('fantasma.llm.openai_provider.AsyncOpenAI') as client:
                 with self.assertRaisesRegex(ValueError, 'OPENAI_INPUT_PRICE'):
                     OpenAICompatibleProvider()
                 client.assert_not_called()
@@ -116,8 +116,8 @@ class PricingTests(unittest.TestCase):
     def test_explicit_free_endpoint_and_configured_paid_pricing(self):
         for values, expected in [({'openai_free_endpoint': True}, 0),
                                  ({'openai_input_price': 2, 'openai_output_price': 4}, 6)]:
-            with patch('llm.openai_provider.get_settings', return_value=Settings(_env_file=None, **values)), \
-                 patch('llm.openai_provider.AsyncOpenAI'):
+            with patch('fantasma.llm.openai_provider.get_settings', return_value=Settings(_env_file=None, **values)), \
+                 patch('fantasma.llm.openai_provider.AsyncOpenAI'):
                 self.assertEqual(OpenAICompatibleProvider().estimate_cost(1000000, 1000000), expected)
 
     def test_invalid_prices_rejected(self):
@@ -141,7 +141,7 @@ class ContainerCleanupTests(unittest.IsolatedAsyncioTestCase):
         proc.communicate = AsyncMock(side_effect=communicate)
         proc.kill.side_effect = lambda: setattr(proc, 'returncode', -9)
         cleanup = Mock(returncode=0, communicate=AsyncMock(return_value=(b'', b'')))
-        with patch('utils.docker_runner.asyncio.create_subprocess_exec', AsyncMock(side_effect=[proc, cleanup])) as spawn:
+        with patch('fantasma.utils.docker_runner.asyncio.create_subprocess_exec', AsyncMock(side_effect=[proc, cleanup])) as spawn:
             task = asyncio.create_task(run_container('test-image', ['sleep 60'], timeout=.01 if outcome == 'timeout' else 10))
             await entered.wait()
             if outcome == 'cancel':

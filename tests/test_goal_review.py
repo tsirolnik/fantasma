@@ -3,17 +3,17 @@ import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from agents.goal import InvestigationGoal
-from agents.goal_reviewer import GoalReviewer
-from cost.tracker import CostTracker
+from fantasma.agents.goal import InvestigationGoal
+from fantasma.agents.goal_reviewer import GoalReviewer
+from fantasma.cost.tracker import CostTracker
 
 
 class ReviewTests(unittest.IsolatedAsyncioTestCase):
     async def test_review_uses_interrupted_observations_after_repeated_resume(self):
         import tempfile
-        from agents.interactive import InteractiveSession
-        from memory.interactive_sessions import InteractiveSessionStore
-        from profiles.loader import load_profile
+        from fantasma.agents.interactive import InteractiveSession
+        from fantasma.memory.interactive_sessions import InteractiveSessionStore
+        from fantasma.profiles.loader import load_profile
 
         profile = load_profile('interactive')
         def session():
@@ -128,10 +128,10 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_session_wires_validator_and_records_evidence_packet(self):
         from unittest.mock import patch
-        from agents.interactive import InteractiveSession
-        from agents.tool_agent import AgentTrace, ToolCall
-        from agents.messaging import TaskAssignment
-        from profiles.loader import load_profile
+        from fantasma.agents.interactive import InteractiveSession
+        from fantasma.agents.tool_agent import AgentTrace, ToolCall
+        from fantasma.agents.messaging import TaskAssignment
+        from fantasma.profiles.loader import load_profile
         profile = load_profile('interactive')
         session = InteractiveSession(profile, profile.llm, SimpleNamespace(budget=1), [], lambda text: None)
         trace = AgentTrace(agent_name='pentester', assignment=TaskAssignment(
@@ -141,7 +141,7 @@ class ReviewTests(unittest.IsolatedAsyncioTestCase):
         session.goal.create('Review fixture', ['Observe the record'])
         model = self.model({'approved': True, 'feedback': 'Recorded tool output supports the criterion.',
                             'criteria': [{'index': 0, 'met': True, 'evidence_refs': ['E2']}]})
-        with patch('agents.interactive.create_llm_for_agent', return_value=model) as factory:
+        with patch('fantasma.agents.interactive.create_llm_for_agent', return_value=model) as factory:
             result = await session.goal.update_tool({'status': 'complete', 'progress': 'Reviewed', 'evidence': 'Record present'})
         factory.assert_called_once_with('validator', session.llm_config)
         self.assertEqual(result['status'], 'complete')

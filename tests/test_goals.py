@@ -4,13 +4,13 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
-from agents.goal import InvestigationGoal
-from agents.interactive import InteractivePentester, InteractiveSession
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
-from memory.interactive_sessions import InteractiveSessionStore
-from profiles.loader import load_profile
-from cost.tracker import CostTracker
+from fantasma.agents.goal import InvestigationGoal
+from fantasma.agents.interactive import InteractivePentester, InteractiveSession
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
+from fantasma.memory.interactive_sessions import InteractiveSessionStore
+from fantasma.profiles.loader import load_profile
+from fantasma.cost.tracker import CostTracker
 
 
 class GoalTests(unittest.IsolatedAsyncioTestCase):

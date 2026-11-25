@@ -2,13 +2,13 @@
 import unittest
 from unittest.mock import patch
 
-from main import async_main, build_parser
+from fantasma.main import async_main, build_parser
 
 
 class CLITests(unittest.IsolatedAsyncioTestCase):
     async def test_offline_profiles_does_not_create_orchestrator(self):
         args = build_parser().parse_args(['profiles', 'inspect', 'interactive'])
-        with patch('main.Orchestrator') as orchestrator, patch('profiles.__main__.main') as inspect:
+        with patch('fantasma.main.Orchestrator') as orchestrator, patch('fantasma.profiles.__main__.main') as inspect:
             await async_main(args)
         orchestrator.assert_not_called()
         inspect.assert_called_once_with(['inspect', 'interactive'])
@@ -22,7 +22,7 @@ class CLITests(unittest.IsolatedAsyncioTestCase):
 
 class RenameCompatibilityTests(unittest.TestCase):
     def test_legacy_database_path_and_new_name_precedence(self):
-        from memory.store import _default_db_path
+        from fantasma.memory.store import _default_db_path
         from pathlib import Path
         with patch.dict('os.environ', {'SWARMHOUND_DB_PATH': '/tmp/legacy-test.sqlite'}, clear=True):
             self.assertEqual(_default_db_path(), Path('/tmp/legacy-test.sqlite'))
@@ -30,7 +30,7 @@ class RenameCompatibilityTests(unittest.TestCase):
                 self.assertEqual(_default_db_path(), Path('/tmp/current-test.sqlite'))
 
     def test_legacy_tool_host_rewrite_and_new_name_precedence(self):
-        from utils.docker_runner import _apply_host_rewrite
+        from fantasma.utils.docker_runner import _apply_host_rewrite
         with patch.dict('os.environ', {'SWARMHOUND_TOOL_HOST_REWRITE': 'localhost=legacy'}, clear=True):
             self.assertEqual(_apply_host_rewrite(['localhost:3000']), ['legacy:3000'])
             with patch.dict('os.environ', {'FANTASMA_TOOL_HOST_REWRITE': 'localhost=current'}):

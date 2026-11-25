@@ -1,11 +1,11 @@
 import unittest
 from unittest.mock import AsyncMock
 from types import SimpleNamespace
-from agents.investigation_journal import InvestigationJournal
-from agents.interactive import InteractivePentester
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
+from fantasma.agents.investigation_journal import InvestigationJournal
+from fantasma.agents.interactive import InteractivePentester
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
 
 
 class JournalTests(unittest.IsolatedAsyncioTestCase):

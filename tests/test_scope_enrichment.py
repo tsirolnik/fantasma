@@ -1,7 +1,7 @@
 import unittest
 
-from agents.pipeline import AgentPipeline, _looks_like_rule
-from models.program import BountyProgram
+from fantasma.agents.pipeline import AgentPipeline, _looks_like_rule
+from fantasma.models.program import BountyProgram
 
 # A program page that interleaves an in-scope list, unrelated vendor domains,
 # host exclusions, PDF pagination/date noise, and a vuln-class rule — the shape

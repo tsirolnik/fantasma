@@ -62,7 +62,7 @@ arbitrary keys affect execution.
   A model-only flag preserves the resolved provider. Changing provider without
   a model flag selects that provider’s configured default model. Named role
   overrides remain more specific than the default-worker configuration.
-- Omitting both `--profile` and `--mode` loads `profiles/interactive.toml`.
+- Omitting both `--profile` and `--mode` loads `fantasma/profiles/interactive.toml`.
   `--mode lab` loads `lab`; `--mode swarm` loads `bugbounty` (four workers).
   `--profile bugbounty` explicitly selects swarm.
 - In the current `full` command, lab consumes target-provider, workflow and role LLM configuration. Swarm
@@ -80,8 +80,8 @@ It warns about lab mode's unsupported swarm settings.
   file with a tunable constructor parameter.
 - [Conditional mechanism](../examples/mechanisms/conditional.toml): only accepted
   high/critical submissions for a named target; another mechanism is disabled.
-- [Bug-bounty profile](../profiles/bugbounty.toml): single-team baseline.
-- [Red-team profile](../profiles/redteam.toml): direct targets and different instructions.
+- [Bug-bounty profile](../fantasma/profiles/bugbounty.toml): single-team baseline.
+- [Red-team profile](../fantasma/profiles/redteam.toml): direct targets and different instructions.
 
 If an incentive seems inactive, inspect its `active_hooks` and `when` conditions,
 check that you selected swarm, and check for `--mechanisms` overriding the list.
@@ -99,8 +99,8 @@ Swarm pentesters (including replacements) request the `scanner` role; their
 runtime IDs are not used to choose an LLM. Both the single-team validator and
 multi-team auditor request `validator`. Configure `[llm.overrides.scanner]` or
 `[llm.overrides.validator]` for those roles. The per-agent Ollama-server path
-constructs its provider separately. See [team spawning](../agents/team.py),
-[validator spawning](../agents/swarm_pipeline.py), and [auditor spawning](../agents/group.py).
+constructs its provider separately. See [team spawning](../fantasma/agents/team.py),
+[validator spawning](../fantasma/agents/swarm_pipeline.py), and [auditor spawning](../fantasma/agents/group.py).
 
 `director_review_interval_s` is the team monitor tick interval. The Director
 review occurs every second tick, not every tick. See [runtime timing](reference/runtime.md).

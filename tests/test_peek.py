@@ -1,10 +1,10 @@
 import asyncio
 import unittest
 from types import SimpleNamespace
-from agents.interactive import InteractiveSession
-from agents.tool_agent import ToolCall
-from profiles.loader import load_profile
-from utils.terminal_activity import TerminalActivity
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.agents.tool_agent import ToolCall
+from fantasma.profiles.loader import load_profile
+from fantasma.utils.terminal_activity import TerminalActivity
 
 
 class PeekTests(unittest.TestCase):
@@ -120,7 +120,7 @@ class PeekCommandTests(unittest.IsolatedAsyncioTestCase):
         from prompt_toolkit import PromptSession
         from prompt_toolkit.input import create_pipe_input
         from prompt_toolkit.output import DummyOutput
-        from agents.interactive import terminal_lines
+        from fantasma.agents.interactive import terminal_lines
         activity=TerminalActivity(lambda text: None)
         made=[]
         with create_pipe_input() as keyboard:

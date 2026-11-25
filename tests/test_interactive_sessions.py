@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch, AsyncMock
-from memory.interactive_sessions import InteractiveSessionStore
-from agents.interactive import InteractiveSession
-from profiles.loader import load_profile
+from fantasma.memory.interactive_sessions import InteractiveSessionStore
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.profiles.loader import load_profile
 
 
 class SessionStoreTests(unittest.TestCase):
@@ -52,7 +52,7 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
             store.close()
             store.acquire(identifier)
             restored=self.session()
-            with patch('agents.interactive.create_llm_for_agent') as factory:
+            with patch('fantasma.agents.interactive.create_llm_for_agent') as factory:
                 restored.attach_store(store,store.load(identifier))
                 factory.assert_not_called()
             self.assertEqual(restored.scope,['example.test'])
@@ -85,8 +85,8 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
             store.close()
 
     async def test_sessions_command_is_offline(self):
-        from main import async_main,build_parser
-        with patch('main.Orchestrator') as orchestrator, patch('commands.sessions.InteractiveSessionStore') as store:
+        from fantasma.main import async_main,build_parser
+        with patch('fantasma.main.Orchestrator') as orchestrator, patch('fantasma.commands.sessions.InteractiveSessionStore') as store:
             store.return_value.list.return_value=[]
             await async_main(build_parser().parse_args(['sessions']))
             orchestrator.assert_not_called()
@@ -94,7 +94,7 @@ class InteractivePersistenceTests(unittest.IsolatedAsyncioTestCase):
 
 class ExitResumeTests(unittest.IsolatedAsyncioTestCase):
     async def test_exit_prints_saved_resume_command_after_ui_cleanup(self):
-        from agents.interactive import run_interactive
+        from fantasma.agents.interactive import run_interactive
         profile = load_profile('interactive')
         async def lines(session):
             yield '/quit'
@@ -110,13 +110,13 @@ class ExitResumeTests(unittest.IsolatedAsyncioTestCase):
                     async def run(self):
                         await self.session.run(lines(self.session))
                         output.append('screen restored')
-                with patch('memory.interactive_sessions.InteractiveSessionStore', return_value=store), \
-                     patch('agents.interactive.terminal_write', side_effect=output.append), \
-                     patch('agents.interactive.terminal_lines', lines), \
-                     patch('agents.interactive.sys.stdin.isatty', return_value=terminal), \
-                     patch('agents.interactive.sys.stdout.isatty', return_value=terminal), \
+                with patch('fantasma.memory.interactive_sessions.InteractiveSessionStore', return_value=store), \
+                     patch('fantasma.agents.interactive.terminal_write', side_effect=output.append), \
+                     patch('fantasma.agents.interactive.terminal_lines', lines), \
+                     patch('fantasma.agents.interactive.sys.stdin.isatty', return_value=terminal), \
+                     patch('fantasma.agents.interactive.sys.stdout.isatty', return_value=terminal), \
                      patch.dict('os.environ', {'TERM':'xterm-256color'}), \
-                     patch('utils.terminal_console.TerminalConsole', Console):
+                     patch('fantasma.utils.terminal_console.TerminalConsole', Console):
                     await run_interactive(profile, profile.llm, SimpleNamespace(budget=1), [])
                 command = f'Resume: fantasma full --resume-session {store.session_id}'
                 self.assertEqual(output[-1], command)

@@ -1,7 +1,7 @@
 # Dashboard API reference
 
-The dashboard is an aiohttp service created by [web/server.py](../../web/server.py)
-and connected to the run by [PipelineBridge](../../web/bridge.py). This is an
+The dashboard is an aiohttp service created by [web/server.py](../../fantasma/web/server.py)
+and connected to the run by [PipelineBridge](../../fantasma/web/bridge.py). This is an
 internal, unversioned API; response fields can evolve with the frontend.
 Return to the [documentation index](../README.md).
 
@@ -28,7 +28,7 @@ Keep the service local unless you supply appropriate deployment controls.
 
 ## Conversational pentester
 
-The default pentester uses [InteractiveWebUI](../../web/interactive.py), sharing
+The default pentester uses [InteractiveWebUI](../../fantasma/web/interactive.py), sharing
 the same authentication middleware. Its companion page supports `GET /api/status`
 (scope, running state, cost, findings count, recent output), `GET /api/profile`,
 and `POST /api/message` with JSON `{"text": "..."}`. Messages use the same
@@ -85,7 +85,7 @@ These invoke pipeline controls; they do not roll back target-side actions. Pause
 is cooperative. Checkpoint limitations are documented in [runtime](runtime.md).
 The bridge also handles `inject`, `checkpoint_response`, `help_response` and
 `browser_watch`; consult `PipelineBridge.handle_client_message` and the
-[frontend](../../web/frontend.html) for their current payloads and live event
+[frontend](../../fantasma/web/frontend.html) for their current payloads and live event
 consumers. Those interaction payloads are not a stable public integration API.
 
 ## Using the workspace

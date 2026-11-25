@@ -2,22 +2,22 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from config import Settings
-from profiles.loader import _resolve_llm, load_profile
-from agents.llm_config import apply_cli_llm_overrides, create_llm_for_agent
+from fantasma.config import Settings
+from fantasma.profiles.loader import _resolve_llm, load_profile
+from fantasma.agents.llm_config import apply_cli_llm_overrides, create_llm_for_agent
 
 
 class LLMResolutionTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(_env_file=None, llm_provider='openai',
                                  director_llm_provider='', worker_llm_provider='')
-        self.patcher = patch('agents.llm_config.get_settings', return_value=self.settings)
+        self.patcher = patch('fantasma.agents.llm_config.get_settings', return_value=self.settings)
         self.patcher.start()
         self.addCleanup(self.patcher.stop)
 
     def test_interactive_uses_configured_provider_at_factory(self):
         config = load_profile('interactive').llm
-        with patch('agents.llm_config.get_provider') as factory:
+        with patch('fantasma.agents.llm_config.get_provider') as factory:
             create_llm_for_agent('scanner', config)
         factory.assert_called_once_with('openai')
 
@@ -50,14 +50,14 @@ class LLMResolutionTests(unittest.TestCase):
         import tempfile
         import tomllib
         from pathlib import Path
-        from profiles.loader import PROFILES_DIR
+        from fantasma.profiles.loader import PROFILES_DIR
         with tempfile.TemporaryDirectory() as directory:
             env = Path(directory) / '.env'
             env.write_text('LLM_PROVIDER=openai\nDIRECTOR_LLM_MODEL=director-test\n'
                            'WORKER_LLM_MODEL=worker-test\n')
             with patch.dict(os.environ, {}, clear=True):
                 settings = Settings(_env_file=env)
-            with patch('agents.llm_config.get_settings', return_value=settings):
+            with patch('fantasma.agents.llm_config.get_settings', return_value=settings):
                 for path in PROFILES_DIR.glob('*.toml'):
                     with self.subTest(profile=path.stem):
                         raw = tomllib.loads(path.read_text())

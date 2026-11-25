@@ -18,14 +18,14 @@ from urllib.error import HTTPError
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from benchmark.launch.fixture import receipt_fixture
-from agents.interactive import InteractivePentester, InteractiveSession
-from agents.messaging import MessageBus, TaskAssignment
-from agents.tools import Tool, ToolRegistry
-from agents.llm_config import create_llm_for_agent
-from agents.goal_reviewer import GoalReviewer
-from cost.tracker import CostTracker
-from memory.interactive_sessions import InteractiveSessionStore
-from profiles.loader import load_profile
+from fantasma.agents.interactive import InteractivePentester, InteractiveSession
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.agents.tools import Tool, ToolRegistry
+from fantasma.agents.llm_config import create_llm_for_agent
+from fantasma.agents.goal_reviewer import GoalReviewer
+from fantasma.cost.tracker import CostTracker
+from fantasma.memory.interactive_sessions import InteractiveSessionStore
+from fantasma.profiles.loader import load_profile
 
 OBJECTIVE = 'Assess the receipt ownership boundary for Alice and report an evidence-backed conclusion.'
 CRITERIA = ['Retrieve Alice’s own receipt as a baseline.',

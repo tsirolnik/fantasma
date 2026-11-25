@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
-from agents.swarm_pipeline import SwarmPipeline
+from fantasma.agents.swarm_pipeline import SwarmPipeline
 
 
 class PipelineControlTests(unittest.TestCase):

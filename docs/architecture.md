@@ -93,9 +93,9 @@ flowchart TB
 | `[topology]` | Team count and workers per team; multi-team runs use AgentGroup on the same swarm engine |
 | `[llm.director]`, `[llm.default_worker]`, `[llm.overrides.*]` | Provider/model by lookup role; swarm workers use `scanner`, validators/auditors use `validator` |
 
-For example, `profiles/competitive.toml` selects three teams of three workers,
+For example, `fantasma/profiles/competitive.toml` selects three teams of three workers,
 shared claims, tuned mechanism bonuses, and distinct Director/worker models.
-`profiles/bugbounty.toml` selects one team of four workers without additive
+`fantasma/profiles/bugbounty.toml` selects one team of four workers without additive
 mechanisms. Those are data choices, not separate orchestration implementations.
 
 ## 2. Adapt during execution
@@ -217,14 +217,14 @@ for command, settings, model and extension API references.
 
 ## Code behind the diagram
 
-- [profiles/loader.py](../profiles/loader.py): class resolution, constructor kwargs, policy and model configuration
-- [commands/full.py](../commands/full.py): CLI precedence and assembly of the pipeline
-- [agents/methodology.py](../agents/methodology.py), [agents/target_provider.py](../agents/target_provider.py): replaceable strategies
-- [agents/tool_agent.py](../agents/tool_agent.py), [agents/turn_context.py](../agents/turn_context.py): tool loop and state rebuilding
-- [agents/team.py](../agents/team.py): reviews, redirects, termination and replacement
-- [agents/group.py](../agents/group.py): team orchestration, auditor and cross-team intelligence
-- [memory/shared.py](../memory/shared.py), [memory/mechanisms.py](../memory/mechanisms.py): hook dispatch and scoring effects
-- [agents/swarm_pipeline.py](../agents/swarm_pipeline.py): persistence, finalization and report handoff
-- [web/bridge.py](../web/bridge.py): live human controls
+- [profiles/loader.py](../fantasma/profiles/loader.py): class resolution, constructor kwargs, policy and model configuration
+- [commands/full.py](../fantasma/commands/full.py): CLI precedence and assembly of the pipeline
+- [agents/methodology.py](../fantasma/agents/methodology.py), [agents/target_provider.py](../fantasma/agents/target_provider.py): replaceable strategies
+- [agents/tool_agent.py](../fantasma/agents/tool_agent.py), [agents/turn_context.py](../fantasma/agents/turn_context.py): tool loop and state rebuilding
+- [agents/team.py](../fantasma/agents/team.py): reviews, redirects, termination and replacement
+- [agents/group.py](../fantasma/agents/group.py): team orchestration, auditor and cross-team intelligence
+- [memory/shared.py](../fantasma/memory/shared.py), [memory/mechanisms.py](../fantasma/memory/mechanisms.py): hook dispatch and scoring effects
+- [agents/swarm_pipeline.py](../fantasma/agents/swarm_pipeline.py): persistence, finalization and report handoff
+- [web/bridge.py](../fantasma/web/bridge.py): live human controls
 
 Checked against the repository on **24 October 2026**.

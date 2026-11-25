@@ -17,7 +17,7 @@ promise. Return to the [documentation index](../README.md).
 
 ## Mechanism
 
-Source: [memory/mechanisms.py](../../memory/mechanisms.py). Subclass `Mechanism`
+Source: [memory/mechanisms.py](../../fantasma/memory/mechanisms.py). Subclass `Mechanism`
 and define a unique `name`. The [mechanism guide](../mechanisms.md) specifies all
 six hooks, return values, ordering, conditions, constructor parameters and state
 lifetime. `MechanismEffect(score_delta=0, reason="", message=None)` is applied by
@@ -32,7 +32,7 @@ keys become constructor kwargs. See [example source](../../examples/mechanisms/c
 
 ## Methodology
 
-Source: [agents/methodology.py](../../agents/methodology.py).
+Source: [agents/methodology.py](../../fantasma/agents/methodology.py).
 
 ```python
 class Methodology:
@@ -85,7 +85,7 @@ or change scope enforcement. Built-in methodology names are `interactive`, `pent
 
 ### Turn template placeholders
 
-Source: [agents/turn_context.py](../../agents/turn_context.py), `build_turn_context`.
+Source: [agents/turn_context.py](../../fantasma/agents/turn_context.py), `build_turn_context`.
 
 | Placeholder | Value |
 | --- | --- |
@@ -106,7 +106,7 @@ The progress digest is appended after the rendered template.
 
 ## TargetProvider
 
-Source: [agents/target_provider.py](../../agents/target_provider.py).
+Source: [agents/target_provider.py](../../fantasma/agents/target_provider.py).
 
 ```python
 async def get_targets(self, pipeline, top_n: int, min_bounty: float):
@@ -118,18 +118,18 @@ Custom providers use `package.module:ClassName`. All `[target]` keys except
 `provider` become constructor kwargs. Built-ins are `auto`, `direct`, `bugbounty`.
 The pipeline argument exposes session, persistence, discovery workers and graph;
 this is a coupled Python interface, not a remote service API. Use
-[DirectTargetProvider](../../agents/target_provider.py) as the reference for
+[DirectTargetProvider](../../fantasma/agents/target_provider.py) as the reference for
 building scope from explicit targets and recording selected programs.
-[BountyProgram](../../models/program.py) is the returned scope model, despite
+[BountyProgram](../../fantasma/models/program.py) is the returned scope model, despite
 its bounty-specific name. Returning None aborts; an empty list supplies no targets.
 
 ## Tool and ToolRegistry
 
-Source: [agents/tools.py](../../agents/tools.py).
+Source: [agents/tools.py](../../fantasma/agents/tools.py).
 
 ```python
 import asyncio
-from agents.tools import Tool, ToolRegistry
+from fantasma.agents.tools import Tool, ToolRegistry
 
 async def summarize_text(params):
     return {"characters": len(params["text"])}

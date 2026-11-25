@@ -7,7 +7,11 @@ configuration options, and runtime behavior.
 
 ## Learn and run
 
-Start with the [interactive pentester](interactive.md), the default user-led terminal
+Try the [local access-control walkthrough](local-evaluation.md) first for an
+offline run without model credentials, Docker, or browser setup. It explains
+recorded HTTP evidence, fixed controls, goal review, and optional live-model runs.
+
+For your own authorized investigation, start with the [interactive pentester](interactive.md), the default user-led terminal
 session with Markdown replies, tool inspection, steering and saved sessions.
 See [session resume](interactive.md#saved-sessions) and
 [steering and interruption](interactive.md#steering-and-interruption).
@@ -41,9 +45,9 @@ Batch swarm and lab workflows are explicit profile choices.
 | --- | --- |
 | [coverage.py](../examples/mechanisms/coverage.py) + [profile.toml](../examples/mechanisms/profile.toml) | Stateful custom Python mechanism configured from TOML |
 | [conditional.toml](../examples/mechanisms/conditional.toml) | Filter hook calls by outcome, target and severity; disable an entry |
-| [bugbounty.toml](../profiles/bugbounty.toml) | Single-team baseline |
-| [competitive.toml](../profiles/competitive.toml) | Multiple teams and incentives |
-| [redteam.toml](../profiles/redteam.toml) | Direct targets and a different system methodology |
+| [bugbounty.toml](../fantasma/profiles/bugbounty.toml) | Single-team baseline |
+| [competitive.toml](../fantasma/profiles/competitive.toml) | Multiple teams and incentives |
+| [redteam.toml](../fantasma/profiles/redteam.toml) | Direct targets and a different system methodology |
 | [Methodology and tool examples](reference/extensions.md) | Implement other Python extension points |
 
 ## Releases

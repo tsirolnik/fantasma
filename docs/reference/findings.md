@@ -1,6 +1,6 @@
 # Finding data reference
 
-Generated from [models/finding.py](../../models/finding.py). The complete
+Generated from [fantasma/models/finding.py](../../fantasma/models/finding.py). The complete
 [JSON schema](finding.schema.json) includes enums and nested definitions.
 Regenerate with `python scripts/generate_reference.py`.
 

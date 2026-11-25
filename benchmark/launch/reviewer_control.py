@@ -8,11 +8,11 @@ import sys
 import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from agents.goal import InvestigationGoal
-from agents.goal_reviewer import GoalReviewer
-from agents.llm_config import create_llm_for_agent
-from profiles.loader import load_profile
-from cost.tracker import CostTracker
+from fantasma.agents.goal import InvestigationGoal
+from fantasma.agents.goal_reviewer import GoalReviewer
+from fantasma.agents.llm_config import create_llm_for_agent
+from fantasma.profiles.loader import load_profile
+from fantasma.cost.tracker import CostTracker
 
 
 async def main(args):

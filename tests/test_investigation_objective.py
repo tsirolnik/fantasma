@@ -1,11 +1,11 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from agents.methodology import PentestMethodology, RedTeamMethodology, InteractiveMethodology
-from agents.pentester import PenTesterAgent
-from agents.interactive import InteractivePentester
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
+from fantasma.agents.methodology import PentestMethodology, RedTeamMethodology, InteractiveMethodology
+from fantasma.agents.pentester import PenTesterAgent
+from fantasma.agents.interactive import InteractivePentester
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
 
 
 class ObjectiveTests(unittest.IsolatedAsyncioTestCase):
@@ -38,7 +38,7 @@ class ObjectiveTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(agent.last_trace.tool_calls, [])
 
     def test_interactive_profile_does_not_require_swarm_claim(self):
-        from profiles.loader import load_profile
+        from fantasma.profiles.loader import load_profile
         profile = load_profile('interactive')
         agent = InteractivePentester(agent_id='pentester', bus=MessageBus(), llm=None,
             shared_memory=SharedMemory(coordination=profile.coordination), methodology=profile.methodology)

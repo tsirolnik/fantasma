@@ -6,9 +6,9 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from agents.interactive import InteractiveSession
-from profiles.loader import load_profile, parse_profile_toml
-from utils.console_logging import configure_console_logging
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.profiles.loader import load_profile, parse_profile_toml
+from fantasma.utils.console_logging import configure_console_logging
 
 
 class ConsoleLoggingTests(unittest.TestCase):

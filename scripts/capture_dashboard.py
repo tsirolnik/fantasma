@@ -35,7 +35,7 @@ MESSAGES = [
 ]
 
 async def index(request):
-    return web.Response(text=(ROOT/'web/frontend.html').read_text(), content_type='text/html')
+    return web.Response(text=(ROOT/'fantasma/web/frontend.html').read_text(), content_type='text/html')
 
 async def socket(request):
     ws = web.WebSocketResponse()

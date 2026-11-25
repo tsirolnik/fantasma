@@ -4,11 +4,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch, mock_open
 import httpx
 import openai
-from agents.interactive import InteractivePentester
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
-from llm.openai_provider import OpenAICompatibleProvider
+from fantasma.agents.interactive import InteractivePentester
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
+from fantasma.llm.openai_provider import OpenAICompatibleProvider
 
 
 class ProviderErrorTests(unittest.IsolatedAsyncioTestCase):

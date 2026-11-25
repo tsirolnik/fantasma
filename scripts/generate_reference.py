@@ -7,10 +7,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from main import build_parser
-from config import Settings
-from commands.base import REGISTRY
-from models.finding import VulnFinding
+from fantasma.main import build_parser
+from fantasma.config import Settings
+from fantasma.commands.base import REGISTRY
+from fantasma.models.finding import VulnFinding
 
 
 def cell(value):
@@ -19,7 +19,7 @@ def cell(value):
 
 def documents():
     parser = build_parser()
-    cli = ['# CLI reference', '', 'Generated from [main.py](../../main.py) and [commands/](../../commands/).',
+    cli = ['# CLI reference', '', 'Generated from [fantasma/main.py](../../fantasma/main.py) and [fantasma/commands/](../../fantasma/commands/).',
            'Regenerate with `python scripts/generate_reference.py`. Profile and runtime fallback',
            'rules are in [configuration](../configuration.md). Global flags precede the command.', '',
            '```bash', 'fantasma --verbose full --profile bugbounty --targets YOUR_AUTHORIZED_DOMAIN',
@@ -34,7 +34,7 @@ def documents():
             'fantasma profiles inspect NAME_OR_PATH', '```', '',
             'These import trusted extensions but do not start a run. See [mechanisms](../mechanisms.md).', '']
     settings = ['# Environment/settings reference', '',
-                'Generated from [Settings](../../config.py) declarations without reading `.env`.',
+                'Generated from [Settings](../../fantasma/config.py) declarations without reading `.env`.',
                 'Regenerate with `python scripts/generate_reference.py`.', '',
                 'Variables use uppercase field names. Process environment values override `.env`',
                 'in the working directory. These are declared defaults, not effective run values.',
@@ -50,7 +50,7 @@ def documents():
     settings += ['', 'Keep populated credentials outside Git. See [.env.example](../../.env.example).', '']
     schema = VulnFinding.model_json_schema()
     model = ['# Finding data reference', '',
-             'Generated from [models/finding.py](../../models/finding.py). The complete',
+             'Generated from [fantasma/models/finding.py](../../fantasma/models/finding.py). The complete',
              '[JSON schema](finding.schema.json) includes enums and nested definitions.',
              'Regenerate with `python scripts/generate_reference.py`.', '',
              'Acceptance and independent verification are separate; see [runtime](runtime.md).', '',

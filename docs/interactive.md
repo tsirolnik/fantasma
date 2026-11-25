@@ -1,7 +1,7 @@
 # Interactive pentester (default profile)
 
 Running `fantasma` or `fantasma full` opens the terminal session
-configured by [profiles/interactive.toml](../profiles/interactive.toml). It waits
+configured by [profiles/interactive.toml](../fantasma/profiles/interactive.toml). It waits
 for a request; startup does not launch discovery, scanning, a Director, or a lab
 pipeline. Lab is opt-in with `--profile lab`.
 
@@ -259,14 +259,14 @@ checking startup and exit without provider calls.
 
 ## Customize the default
 
-Copy `profiles/interactive.toml` and pass `--profile PATH`. Configure methodology,
+Copy `fantasma/profiles/interactive.toml` and pass `--profile PATH`. Configure methodology,
 mechanism instances, worker LLM, and per-request limits there. The terminal uses
 `--targets` or `/scope` for scope; it does not invoke profile target discovery.
 Lab workflow stages and swarm monitors do not apply. Do not change
 `topology.agents_per_team` or `num_teams` from one for this engine.
 
-Implementation: [interactive session](../agents/interactive.py),
-[tool loop](../agents/tool_agent.py), [command dispatch](../commands/full.py).
+Implementation: [interactive session](../fantasma/agents/interactive.py),
+[tool loop](../fantasma/agents/tool_agent.py), [command dispatch](../fantasma/commands/full.py).
 
 ## Web companion
 

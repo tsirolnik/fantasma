@@ -4,11 +4,11 @@ import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from agents.interactive import InteractivePentester
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
-from llm.openai_provider import OpenAICompatibleProvider
+from fantasma.agents.interactive import InteractivePentester
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
+from fantasma.llm.openai_provider import OpenAICompatibleProvider
 
 
 class ReasoningTests(unittest.IsolatedAsyncioTestCase):
@@ -87,15 +87,15 @@ class ReasoningTests(unittest.IsolatedAsyncioTestCase):
 
 class NativeHistoryTests(unittest.TestCase):
     def test_toml_default_and_validation(self):
-        from profiles.loader import _resolve_llm
+        from fantasma.profiles.loader import _resolve_llm
         self.assertTrue(_resolve_llm({}).retain_thinking)
         self.assertFalse(_resolve_llm({'retain_thinking': False}).retain_thinking)
         with self.assertRaisesRegex(ValueError, 'boolean'):
             _resolve_llm({'retain_thinking': 'false'})
 
     def test_native_ollama_and_openai_json_replay(self):
-        from llm.ollama_provider import OllamaProvider
-        from llm.reasoning import prepare_messages
+        from fantasma.llm.ollama_provider import OllamaProvider
+        from fantasma.llm.reasoning import prepare_messages
         for cls, data, key in [
             (OllamaProvider, {'thinking': 'Full rationale', 'content': 'answer'}, 'thinking'),
             (OpenAICompatibleProvider, {'reasoning_details': [{'type': 'reasoning.encrypted', 'data': 'opaque'}],
@@ -111,7 +111,7 @@ class NativeHistoryTests(unittest.TestCase):
 
     def test_gemini_signature_and_thought_resume_with_new_adapter(self):
         from google.genai import types
-        from llm.gemini_provider import GeminiProvider
+        from fantasma.llm.gemini_provider import GeminiProvider
         provider = object.__new__(GeminiProvider)
         provider._pending_tool_names = {}; provider._pending_thought_sigs = {}
         content = types.Content(role='model', parts=[
@@ -130,9 +130,9 @@ class NativeHistoryTests(unittest.TestCase):
         self.assertEqual(replay[1].parts[0].function_response.name, 'read')
 
     def test_anthropic_signed_content_stays_exact(self):
-        from llm.claude_provider import ClaudeProvider
-        from llm.vertex_provider import VertexProvider
-        from llm.reasoning import prepare_messages, has_reasoning
+        from fantasma.llm.claude_provider import ClaudeProvider
+        from fantasma.llm.vertex_provider import VertexProvider
+        from fantasma.llm.reasoning import prepare_messages, has_reasoning
         history = [{'role': 'assistant', 'content': [
             {'type': 'thinking', 'thinking': 'Reason', 'signature': 'signed'},
             {'type': 'redacted_thinking', 'data': 'opaque'},
@@ -143,7 +143,7 @@ class NativeHistoryTests(unittest.TestCase):
 
 class SwarmRetentionTests(unittest.IsolatedAsyncioTestCase):
     async def test_rebuilt_context_keeps_signed_tool_turn_and_final_response(self):
-        from llm.claude_provider import ClaudeProvider
+        from fantasma.llm.claude_provider import ClaudeProvider
         model = object.__new__(ClaudeProvider)
         model.model = 'fixture'
         thought = {'type': 'thinking', 'thinking': 'Need a prerequisite', 'signature': 'signature'}

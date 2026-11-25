@@ -4,10 +4,10 @@ from types import SimpleNamespace
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.data_structures import Size
-from agents.interactive import InteractiveSession
-from profiles.loader import load_profile
-from utils.terminal_console import TerminalConsole
-from utils.terminal_markdown import MarkdownMessage
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.profiles.loader import load_profile
+from fantasma.utils.terminal_console import TerminalConsole
+from fantasma.utils.terminal_markdown import MarkdownMessage
 
 
 class ScreenOutput(DummyOutput):

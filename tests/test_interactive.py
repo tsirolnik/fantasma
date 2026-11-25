@@ -4,10 +4,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from agents.interactive import InteractivePentester, InteractiveSession
-from agents.messaging import MessageBus, TaskAssignment
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
+from fantasma.agents.interactive import InteractivePentester, InteractiveSession
+from fantasma.agents.messaging import MessageBus, TaskAssignment
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
 
 
 class ConversationTests(unittest.IsolatedAsyncioTestCase):
@@ -35,11 +35,11 @@ class ConversationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('No target scope', agent._check_scope_claim('http_fetch', {'url': 'http://localhost'}))
 
     async def test_default_command_selects_interactive_without_lab_construction(self):
-        from main import build_parser
-        from commands.full import run
+        from fantasma.main import build_parser
+        from fantasma.commands.full import run
         for flags in ([], ['--profile', 'interactive']):
-            with patch('agents.interactive.run_interactive', new_callable=AsyncMock) as runner, \
-                 patch('agents.pipeline.AgentPipeline') as lab:
+            with patch('fantasma.agents.interactive.run_interactive', new_callable=AsyncMock) as runner, \
+                 patch('fantasma.agents.pipeline.AgentPipeline') as lab:
                 await run(build_parser().parse_args(['full', *flags]), None)
                 self.assertEqual(runner.call_args.args[0].name, 'interactive')
                 lab.assert_not_called()
@@ -48,7 +48,7 @@ class ConversationTests(unittest.IsolatedAsyncioTestCase):
         profile = load_profile('interactive')
         output = []
         session = InteractiveSession(profile, profile.llm, SimpleNamespace(targets=None, budget=1), [], output.append)
-        with patch('agents.interactive.create_llm_for_agent') as factory:
+        with patch('fantasma.agents.interactive.create_llm_for_agent') as factory:
             await session.handle('/scope localhost')
             await session.handle('/status')
             await session.handle('/quit')

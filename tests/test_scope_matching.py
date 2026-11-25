@@ -1,6 +1,6 @@
 import unittest
 
-from utils.scope import host_in_scope
+from fantasma.utils.scope import host_in_scope
 
 
 class WildcardScopeMatchingTests(unittest.TestCase):

@@ -1,43 +1,102 @@
-# Fantasma
+# Fantasma 👻
 
-**A composable multi-agent framework for authorized security research.**
+**An open-source AI security research framework with configurable agents, workflows, and tools.**
 
-Fantasma starts as an interactive security research workspace: set scope, ask an
-investigator to work, inspect its tools, and steer or stop it. Conversations and
-findings save locally so you can return to a session later. Set a persistent
-[investigation goal](docs/interactive.md#persistent-investigation-goals) to let the
-agent keep working toward explicit completion criteria within the configured limits.
+Use Fantasma to investigate an authorized application with one agent, coordinate
+a team with shared context, or run a staged assessment. Inspect tool results,
+change direction, and choose the models and tools that fit your investigation.
 
-Choose a swarm profile to coordinate multiple investigators with shared context
-and Director oversight, or a lab profile for sequential stages. Profiles and
-Python extensions define methodology, model selection, coordination, and incentive
-mechanisms. MCP connects additional tools; browser tools are available independently.
+Start with an interactive pentester, then choose team coordination or sequential
+stages when the task calls for them. Profiles and Python extensions let you
+change how the investigation works.
+
+[Install](#install) · [Try without an API key](#try-the-framework-without-an-api-key) ·
+[Documentation](docs/README.md) · [Architecture](docs/architecture.md)
+
+## Choose an investigation workflow
+
+| Workflow | Use it for | Start here |
+| --- | --- | --- |
+| Interactive pentester | Investigate with an agent you can steer, stop, inspect, and resume | [Interactive guide](docs/interactive.md) · `interactive` profile |
+| Coordinated or competing teams | Divide work among investigators with shared memory, claims, and Director oversight | [Configuration](docs/configuration.md) · [single team](fantasma/profiles/bugbounty.toml) · [competing teams](fantasma/profiles/competitive.toml) |
+| Sequential assessment | Configure reconnaissance, scanning, analysis, and reporting stages | [Lab workflow](docs/lab.md) · `lab` profile |
+
+Profiles select methodology, model providers, coordination, and incentives.
+[Python extensions](docs/reference/extensions.md) add custom behavior;
+[MCP servers](docs/mcp.md) connect additional tools. Docker-packaged security tools,
+browser interaction, and browser-backed search are available. You can use local
+models or hosted providers; a proprietary model service is not required.
+
+Interactive sessions support persistent [investigation goals](docs/interactive.md#persistent-investigation-goals).
+A separate reviewer checks recorded evidence before accepting goal completion.
+This does not independently reproduce a vulnerability.
 
 **Experimental software.** Use only on systems you own or are explicitly
 authorized to test. Findings and generated reports require human review.
 
-## Screenshots
+## Try the framework without an API key
 
-### Full agent dashboard
+Requires Python 3.13+ on macOS or Linux. From a fresh checkout:
 
-Follow agent activity, inspect shared context, and track costs across a team.
+Install from PyPI into a virtual environment:
 
-![Fantasma full dashboard showing agent activity, team status, and costs](docs/fantasma-dashboard.png)
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install fantasma
+python -m playwright install chromium
+fantasma tools build
+```
 
-*Illustrative example data; no live scan or model calls.*
+`fantasma tools build` builds the `bugbounty-tools:latest` image that container
+tools run in, from the Dockerfile bundled with the package. Settings are read
+from environment variables or from a `.env` file in the directory where you run
+`fantasma`. Start from [`.env.example`](.env.example).
 
-### Interactive workspace
+To work from source instead:
 
-Set scope, send investigation requests, and steer or stop work from the browser.
-The browser and terminal share the same session.
+```bash
+git clone https://github.com/tsirolnik/fantasma.git
+cd fantasma
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+python -m playwright install chromium
+test -f .env || cp .env.example .env
+fantasma tools build
+```
 
-![Fantasma interactive workspace showing scope, session activity, and controls](docs/fantasma-interactive.png)
+Either install creates the `fantasma` command in your active environment. Run
+`fantasma --help`, `fantasma --version`, or simply `fantasma` to start
+an interactive session. `fantasma profiles inspect interactive` inspects a
+profile without model calls. `python -m fantasma` and, in a checkout,
+`python main.py` also work.
 
-*Captured in a local dry-run session; no live scan or model calls.*
+Edit `.env` before sending your first request. Choose `LLM_PROVIDER` and configure
+that provider's model and credentials. For Claude, set `LLM_PROVIDER=claude`,
+`ANTHROPIC_API_KEY`, and `CLAUDE_MODEL`. For an OpenAI-compatible endpoint, set
+`LLM_PROVIDER=openai`, `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `OPENAI_MODEL`.
+See the [provider setup guide](docs/getting-started.md#first-interactive-session).
 
-See the [dashboard reference](docs/reference/dashboard.md) for controls and setup.
-To reproduce these captures, run `python scripts/capture_dashboard.py` and
-`python scripts/check_ui.py` with the development dependencies installed.
+Providers implemented in the code are `claude`, `ollama`, `openai`
+(OpenAI-compatible endpoints), `gemini`, and `vertex`. Set per-role providers
+through a profile or the `--director-llm`, `--worker-llm` and `--analyzer-llm`
+flags. Every shipped profile explicitly uses `[llm] source = "env"` to load models
+and providers from `.env`; use `LLM_PROVIDER=openai` for Novita.
+Role settings (`DIRECTOR_LLM_PROVIDER`, `WORKER_LLM_PROVIDER`) override that
+default. Explicit profile LLM fields override environment defaults, and CLI
+role flags take precedence over profile fields. Process environment variables
+take precedence over `.env` values.
+
+OpenAI-compatible endpoints also need `OPENAI_INPUT_PRICE` and
+`OPENAI_OUTPUT_PRICE` in USD per million tokens, or an explicit
+`OPENAI_FREE_ENDPOINT=true` for a genuinely free endpoint. Ollama requires a
+running server and a downloaded model matching `OLLAMA_MODEL`.
+
+FalkorDB is optional. Graph support defaults to enabled and attempts to start a
+local container; set `FALKORDB_ENABLED=false` in `.env` to disable it.
+See [`.env.example`](.env.example) for common settings and [config.py](fantasma/config.py)
+for the full settings schema.
 
 ## Start interactively
 
@@ -104,6 +163,9 @@ constructor parameters. Custom classes execute Python code: load profiles you
 trust. Tool registries are composed in Python; a methodology changes prompts,
 not the underlying set of tools by itself.
 
+<details>
+<summary>How profiles compose the swarm engine</summary>
+
 ```mermaid
 flowchart TB
     PROFILE["TOML profile + explicit CLI overrides"] --> LOAD["Resolve components and parameters"]
@@ -124,18 +186,20 @@ flowchart TB
     class PROFILE,LOAD,POLICY,TOPO config;
 ```
 
+</details>
+
 Example profiles:
 
-- [`interactive.toml`](profiles/interactive.toml): default user-led terminal pentester.
-- [`lab.toml`](profiles/lab.toml): configurable sequential recon, scan, analysis and reporting.
-- [`bugbounty.toml`](profiles/bugbounty.toml): one team, four workers, baseline scoring.
-- [`competitive.toml`](profiles/competitive.toml): three teams of three workers,
+- [`interactive.toml`](fantasma/profiles/interactive.toml): default user-led terminal pentester.
+- [`lab.toml`](fantasma/profiles/lab.toml): configurable sequential recon, scan, analysis and reporting.
+- [`bugbounty.toml`](fantasma/profiles/bugbounty.toml): one team, four workers, baseline scoring.
+- [`competitive.toml`](fantasma/profiles/competitive.toml): three teams of three workers,
   shared claims and additional incentives.
-- [`redteam.toml`](profiles/redteam.toml): direct targets with an internal
+- [`redteam.toml`](fantasma/profiles/redteam.toml): direct targets with an internal
   red-team methodology.
 
 Profiles are loaded at startup, not hot-reloaded. Omitting both `--profile`
-and `--mode` loads `profiles/interactive.toml`. Lab runs only when selected
+and `--mode` loads `fantasma/profiles/interactive.toml`. Lab runs only when selected
 with `--profile lab` or `--mode lab`. Use `--profile bugbounty` for the swarm engine.
 
 ## How a swarm run works
@@ -171,61 +235,16 @@ internet access to render Mermaid.
 Start at the [documentation index](docs/README.md) for tutorials, examples, and
 CLI, settings, extension API, runtime, data-model and dashboard references.
 
+- [How Fantasma compares to ARTEX](docs/comparison.md): design differences in
+  scope, isolation, coordination and completion review.
+- [Local access-control walkthrough](docs/local-evaluation.md): exercise the agent loop,
+  inspect HTTP evidence, and compare vulnerable and fixed fixtures.
 - [Setup and first custom mechanism](docs/getting-started.md): fresh-clone setup,
   a working Python extension, offline checks, conditional configuration and a real run.
 - [Configuration reference](docs/configuration.md): settings, defaults and CLI precedence.
 - [Custom mechanisms](docs/mechanisms.md): hook API, state, filters and examples.
 - [Architecture](docs/architecture.md): components and runtime flow.
 - [Local benchmark](benchmark/README.md): managed target and evaluation workflow.
-
-## Install
-
-Supported terminal platforms: macOS and Linux, with Python 3.13+. Model requests
-require a configured provider. Docker with Compose is needed for container tools.
-Playwright supplies the browser used by browser tools.
-
-```bash
-git clone https://github.com/tsirolnik/fantasma.git
-cd fantasma
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-playwright install chromium
-test -f .env || cp .env.example .env
-docker build -t bugbounty-tools:latest -f docker/Dockerfile.tools .
-```
-
-The install creates the `fantasma` command in your active environment. Run
-`fantasma --help`, `fantasma --version`, or simply `fantasma` to start
-an interactive session. `fantasma profiles inspect interactive` inspects a
-profile without model calls. The `python main.py` entry point also remains supported.
-
-This is a source installation; a PyPI release has not been published.
-[v0.2.0](https://github.com/tsirolnik/fantasma/releases/tag/v0.2.0) includes
-the current interactive features as a wheel and source archive.
-
-Edit `.env` before running. The example below uses Claude for all agent roles:
-set `ANTHROPIC_API_KEY` and a `CLAUDE_MODEL` available to your account.
-
-Providers implemented in the code are `claude`, `ollama`, `openai`
-(OpenAI-compatible endpoints), `gemini`, and `vertex`. Set per-role providers
-through a profile or the `--director-llm`, `--worker-llm` and `--analyzer-llm`
-flags. Every shipped profile explicitly uses `[llm] source = "env"` to load models
-and providers from `.env`; use `LLM_PROVIDER=openai` for Novita.
-Role settings (`DIRECTOR_LLM_PROVIDER`, `WORKER_LLM_PROVIDER`) override that
-default. Explicit profile LLM fields override environment defaults, and CLI
-role flags take precedence over profile fields. Process environment variables
-take precedence over `.env` values.
-
-OpenAI-compatible endpoints also need `OPENAI_INPUT_PRICE` and
-`OPENAI_OUTPUT_PRICE` in USD per million tokens, or an explicit
-`OPENAI_FREE_ENDPOINT=true` for a genuinely free endpoint. Ollama requires a
-running server and a downloaded model matching `OLLAMA_MODEL`.
-
-FalkorDB is optional. Graph support defaults to enabled and attempts to start a
-local container; set `FALKORDB_ENABLED=false` in `.env` to disable it.
-See [`.env.example`](.env.example) for common settings and [config.py](config.py)
-for the full settings schema.
 
 ## Start with the local lab
 
@@ -257,10 +276,10 @@ For your own authorized target, replace the example domain below:
 ```bash
 fantasma full --profile bugbounty \
     --targets your-authorized-target.example \
-    --director-llm claude --worker-llm claude --analyzer-llm claude \
     --budget 8 --web
 ```
 
+This uses the model configuration from your `.env` and selected profile.
 Switch to `--profile competitive` for the multi-team example. Override its team
 and worker counts with `--num-teams` and `--swarm-agents`. Leave out `--targets`
 with the `auto` target provider to use program discovery instead. Review the
@@ -283,7 +302,7 @@ fantasma history
 ```
 
 Saved swarm checkpoints can be selected with `full --resume` or
-`--resume-scan NAME_OR_ID`. Reapply the intended profile and provider settings;
+`--resume-scan NAME_OR_ID`. Reapply the intended profile and provider settings.
 Swarm checkpoints restore saved state; they do not resume live tool processes.
 
 ## Boundaries
@@ -349,7 +368,6 @@ not replace an end-to-end run with your chosen models and environment.
 
 [MIT](LICENSE) © Yehonatan Tsirolnik
 
-MCP plugins: see [setup, IDA connection examples, and configuration reference](docs/mcp.md).
 
 ## Contributing and reporting vulnerabilities
 

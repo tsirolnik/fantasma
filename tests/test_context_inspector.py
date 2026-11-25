@@ -1,8 +1,8 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from agents.interactive import InteractiveSession
-from profiles.loader import load_profile
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.profiles.loader import load_profile
 
 
 class ContextTests(unittest.IsolatedAsyncioTestCase):
@@ -50,9 +50,9 @@ class ContextTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(s.activity.expanded)
 
     async def test_real_agent_callback_captures_model_request(self):
-        from agents.interactive import InteractivePentester
-        from agents.messaging import MessageBus, TaskAssignment
-        from memory.shared import SharedMemory
+        from fantasma.agents.interactive import InteractivePentester
+        from fantasma.agents.messaging import MessageBus, TaskAssignment
+        from fantasma.memory.shared import SharedMemory
         s=self.session()
         model=SimpleNamespace(supports_tool_use=True, model='fake',
             chat_with_tools=AsyncMock(return_value={'content':[{'type':'text','text':'hello'}],'usage':{}}))

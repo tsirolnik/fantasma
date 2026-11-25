@@ -2,10 +2,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from agents.pipeline import AgentPipeline
-from memory.session import SessionMemory
-from profiles import LabWorkflow
-from profiles.loader import load_profile, parse_profile_toml
+from fantasma.agents.pipeline import AgentPipeline
+from fantasma.memory.session import SessionMemory
+from fantasma.profiles import LabWorkflow
+from fantasma.profiles.loader import load_profile, parse_profile_toml
 
 
 class LabProfileTests(unittest.TestCase):
@@ -19,7 +19,7 @@ class LabProfileTests(unittest.TestCase):
         from unittest.mock import patch
         pipeline = AgentPipeline.__new__(AgentPipeline)
         pipeline.workflow = LabWorkflow(worker_mode="tool")
-        with patch('agents.pipeline.create_llm_for_agent', return_value=SimpleNamespace(supports_tool_use=False)):
+        with patch('fantasma.agents.pipeline.create_llm_for_agent', return_value=SimpleNamespace(supports_tool_use=False)):
             with self.assertRaisesRegex(ValueError, 'tool-capable'):
                 pipeline._create_workers(None, False)
 
@@ -93,13 +93,13 @@ class LabExecutionTests(unittest.IsolatedAsyncioTestCase):
 class LabCommandTests(unittest.IsolatedAsyncioTestCase):
     async def test_explicit_and_legacy_flag_load_same_profile(self):
         from unittest.mock import patch
-        from main import build_parser
-        from commands.full import run
+        from fantasma.main import build_parser
+        from fantasma.commands.full import run
         class ConstructionReached(Exception):
             pass
         for flags in (['--mode', 'lab'], ['--profile', 'lab']):
             args = build_parser().parse_args(['full', *flags])
-            with patch('agents.pipeline.AgentPipeline', side_effect=ConstructionReached) as constructor:
+            with patch('fantasma.agents.pipeline.AgentPipeline', side_effect=ConstructionReached) as constructor:
                 with self.assertRaises(ConstructionReached):
                     await run(args, None)
             self.assertEqual(constructor.call_args.kwargs['workflow'], load_profile('lab').workflow)

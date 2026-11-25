@@ -3,9 +3,9 @@ import io
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
-from agents.interactive import InteractiveSession
-from profiles.loader import load_profile
-from utils.terminal_markdown import MarkdownMessage, terminal_write
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.profiles.loader import load_profile
+from fantasma.utils.terminal_markdown import MarkdownMessage, terminal_write
 
 
 class SteeringTests(unittest.IsolatedAsyncioTestCase):

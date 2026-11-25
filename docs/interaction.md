@@ -90,9 +90,9 @@ The existing dashboard remains the interface for its browser-watch and human-hel
 features; terminal control does not implement every dashboard widget. The reader
 currently relies on macOS/Linux asyncio file-descriptor support.
 
-Sources: [profile schema](../profiles/__init__.py), [loader](../profiles/loader.py),
-[dispatch](../commands/full.py), [pipeline console](../agents/pipeline_console.py),
-[conversational session](../agents/interactive.py), [dashboard](reference/dashboard.md).
+Sources: [profile schema](../fantasma/profiles/__init__.py), [loader](../fantasma/profiles/loader.py),
+[dispatch](../fantasma/commands/full.py), [pipeline console](../fantasma/agents/pipeline_console.py),
+[conversational session](../fantasma/agents/interactive.py), [dashboard](reference/dashboard.md).
 
 When both surfaces are open, terminal-controlled swarm/lab checkpoints remain
 in the terminal (`/continue`, `/skip`); dashboard monitoring, messages and controls

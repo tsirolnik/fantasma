@@ -4,10 +4,10 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace, MethodType
 
-from agents.tool_agent import ToolAgent
-from memory.mechanisms import Mechanism, MechanismEffect, build_mechanisms
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
+from fantasma.agents.tool_agent import ToolAgent
+from fantasma.memory.mechanisms import Mechanism, MechanismEffect, build_mechanisms
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
 
 
 class CustomMechanismTests(unittest.TestCase):
@@ -82,7 +82,7 @@ class ConditionalTests(unittest.TestCase):
         self.assertFalse(mechanism.on_submit('worker-a', finding, True, None))
 
     def test_gates_cover_all_hooks(self):
-        from memory.mechanisms import ConditionalMechanism
+        from fantasma.memory.mechanisms import ConditionalMechanism
         from unittest.mock import Mock
         inner = Mock(spec=Mechanism)
         inner.name = 'probe'
@@ -96,7 +96,7 @@ class ConditionalTests(unittest.TestCase):
         self.assertEqual(inner.mock_calls, [])
 
     def test_agent_filter_on_claim_and_turn(self):
-        from memory.mechanisms import ConditionalMechanism
+        from fantasma.memory.mechanisms import ConditionalMechanism
         from unittest.mock import Mock
         inner = Mock(spec=Mechanism)
         inner.name = 'probe'
@@ -120,7 +120,7 @@ class ConditionalTests(unittest.TestCase):
                 build_mechanisms([{'name': 'first_finder_bonus', 'when': when}])
 
     def test_inspector_reports_active_hooks_and_excludes_disabled_entries(self):
-        from profiles.__main__ import inspect_profile
+        from fantasma.profiles.__main__ import inspect_profile
         path = Path(__file__).resolve().parents[1] / 'examples/mechanisms/conditional.toml'
         result = inspect_profile(str(path))
         active, = result['active_mechanisms']
@@ -130,11 +130,11 @@ class ConditionalTests(unittest.TestCase):
 
     def test_explicit_empty_list_overrides_environment_in_pipeline_and_group(self):
         from unittest.mock import patch, Mock
-        from agents.pipeline import AgentPipeline
-        from agents.group import AgentGroup
+        from fantasma.agents.pipeline import AgentPipeline
+        from fantasma.agents.group import AgentGroup
         settings = SimpleNamespace(mechanisms='idle_tax')
-        with patch('agents.pipeline.get_settings', return_value=settings), \
-             patch('agents.pipeline.PersistentMemory'), patch('agents.pipeline.LearningMemory'), \
+        with patch('fantasma.agents.pipeline.get_settings', return_value=settings), \
+             patch('fantasma.agents.pipeline.PersistentMemory'), patch('fantasma.agents.pipeline.LearningMemory'), \
              patch.object(AgentPipeline, '_create_workers'):
             self.assertEqual(AgentPipeline(dry_run=True, mechanisms=[]).mechanisms, [])
             self.assertEqual(AgentPipeline(dry_run=True).mechanisms, ['idle_tax'])

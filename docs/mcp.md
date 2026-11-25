@@ -90,8 +90,8 @@ Configure trusted servers: stdio launches local code, and MCP tools may modify f
 
 ## Source reference
 
-- [Profile schema](../profiles/mcp.py) and [loader](../profiles/loader.py)
-- [Session lifecycle, discovery and result adapter](../agents/mcp_runtime.py)
-- [Agent registry integration](../agents/tool_agent.py) and [command ownership](../commands/full.py)
+- [Profile schema](../fantasma/profiles/mcp.py) and [loader](../fantasma/profiles/loader.py)
+- [Session lifecycle, discovery and result adapter](../fantasma/agents/mcp_runtime.py)
+- [Agent registry integration](../fantasma/agents/tool_agent.py) and [command ownership](../fantasma/commands/full.py)
 - [Example profile](../examples/mcp/profile.toml), [demo server](../examples/mcp/server.py), [integration tests](../tests/test_mcp.py)
 - [Official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk/tree/v1.28.0)

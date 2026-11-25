@@ -1,6 +1,6 @@
 # Lab workflow profile
 
-Lab is the sequential workflow shipped in [profiles/lab.toml](../profiles/lab.toml).
+Lab is the sequential workflow shipped in [profiles/lab.toml](../fantasma/profiles/lab.toml).
 Select it like any other profile:
 
 ```bash
@@ -83,5 +83,5 @@ are not applied to these sequential workers. Use a swarm profile for those
 features. Lab supports target-provider selection, workflow settings and role LLMs.
 The inspection output and dashboard profile view include the lab workflow.
 
-Source: [profile loader](../profiles/loader.py), [workflow schema](../profiles/__init__.py),
-[command assembly](../commands/full.py), [stage execution](../agents/pipeline.py).
+Source: [profile loader](../fantasma/profiles/loader.py), [workflow schema](../fantasma/profiles/__init__.py),
+[command assembly](../fantasma/commands/full.py), [stage execution](../fantasma/agents/pipeline.py).

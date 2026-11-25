@@ -20,14 +20,14 @@ explicit batch/swarm path rather than that interactive lifecycle.
 
 | Component | Responsibility | Source |
 | --- | --- | --- |
-| `commands.full.run` | Load profile, apply explicit flags, choose interactive pentester, lab or swarm | [commands/full.py](../../commands/full.py) |
-| `SwarmPipeline` | Target selection, shared services, teams, persistence, finalization | [agents/swarm_pipeline.py](../../agents/swarm_pipeline.py) |
-| `AgentTeam` | Spawn workers, monitor progress, apply Director decisions, replace workers | [agents/team.py](../../agents/team.py) |
-| `AgentGroup` | Construct multiple teams, merged auditor view and cross-team broadcasts | [agents/group.py](../../agents/group.py) |
-| `Director` | Review team summaries and return redirects / score adjustments | [agents/director.py](../../agents/director.py) |
-| `PenTesterAgent` / `ToolAgent` | Build context, call model, select and execute tools | [pentester.py](../../agents/pentester.py), [tool_agent.py](../../agents/tool_agent.py) |
-| `SharedMemory` | Team feed, claims, submission gates, finding objects, scores and hook effects | [memory/shared.py](../../memory/shared.py) |
-| `ValidatorAgent` | Re-test findings and update verification fields | [agents/validator.py](../../agents/validator.py) |
+| `commands.full.run` | Load profile, apply explicit flags, choose interactive pentester, lab or swarm | [commands/full.py](../../fantasma/commands/full.py) |
+| `SwarmPipeline` | Target selection, shared services, teams, persistence, finalization | [agents/swarm_pipeline.py](../../fantasma/agents/swarm_pipeline.py) |
+| `AgentTeam` | Spawn workers, monitor progress, apply Director decisions, replace workers | [agents/team.py](../../fantasma/agents/team.py) |
+| `AgentGroup` | Construct multiple teams, merged auditor view and cross-team broadcasts | [agents/group.py](../../fantasma/agents/group.py) |
+| `Director` | Review team summaries and return redirects / score adjustments | [agents/director.py](../../fantasma/agents/director.py) |
+| `PenTesterAgent` / `ToolAgent` | Build context, call model, select and execute tools | [pentester.py](../../fantasma/agents/pentester.py), [tool_agent.py](../../fantasma/agents/tool_agent.py) |
+| `SharedMemory` | Team feed, claims, submission gates, finding objects, scores and hook effects | [memory/shared.py](../../fantasma/memory/shared.py) |
+| `ValidatorAgent` | Re-test findings and update verification fields | [agents/validator.py](../../fantasma/agents/validator.py) |
 
 The Director, MessageBus, CostTracker, persistence and browser pool are shared
 services. Each team has its own SharedMemory and mechanism instances. Browser
@@ -49,7 +49,7 @@ consult shared work through tools; SharedMemory is not a shared model conversati
 Tool results update local state before the next model action.
 
 A methodology changes the system prompt. The default turn briefing still contains
-bug-bounty wording, goals and excluded classes from `agents/turn_context.py`.
+bug-bounty wording, goals and excluded classes from `fantasma/agents/turn_context.py`.
 The methodology is included on each rebuilt turn. To replace the default briefing
 for another investigation domain, also supply `turn_template`; see the
 [extension reference](extensions.md#methodology).
@@ -123,11 +123,11 @@ execute once per mechanism name across team memories; order can affect scores.
 | Logs | Run, web and LLM wire output | `data/logs/` |
 | Reports | Generated Markdown | `OUTPUT_DIR`, default `./output` |
 
-`FANTASMA_DB_PATH` is read directly by [memory/store.py](../../memory/store.py),
+`FANTASMA_DB_PATH` is read directly by [memory/store.py](../../fantasma/memory/store.py),
 so it is not a `Settings` field in the generated environment table. Export it in
 the process environment when isolating runs.
 
-[Checkpoint capture](../../memory/checkpoint.py) does not serialize arbitrary
+[Checkpoint capture](../../fantasma/memory/checkpoint.py) does not serialize arbitrary
 Python mechanism state, browser sessions, in-flight calls, or a full multi-team
 execution graph. `SwarmPipeline._build_checkpoint` captures its single
 `shared_memory` reference; multi-team continuation is not a complete topology

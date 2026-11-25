@@ -14,9 +14,9 @@ from types import SimpleNamespace
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from playwright.async_api import async_playwright
-from profiles.loader import load_profile
-from agents.interactive import InteractiveSession
-from web.interactive import InteractiveWebUI
+from fantasma.profiles.loader import load_profile
+from fantasma.agents.interactive import InteractiveSession
+from fantasma.web.interactive import InteractiveWebUI
 spec=importlib.util.spec_from_file_location('preview',Path(__file__).with_name('capture_dashboard.py'));demo=importlib.util.module_from_spec(spec);spec.loader.exec_module(demo)
 
 async def main():

@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from [main.py](../../main.py) and [commands/](../../commands/).
+Generated from [fantasma/main.py](../../fantasma/main.py) and [fantasma/commands/](../../fantasma/commands/).
 Regenerate with `python scripts/generate_reference.py`. Profile and runtime fallback
 rules are in [configuration](../configuration.md). Global flags precede the command.
 
@@ -19,12 +19,12 @@ usage: fantasma [-h] [--version] [--llm {claude,gemini,ollama,openai,vertex}]
                 [--vertex-region VERTEX_REGION] [--vertex-model VERTEX_MODEL]
                 [--gemini-api-key GEMINI_API_KEY]
                 [--gemini-model GEMINI_MODEL]
-                {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions} ...
+                {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions,tools} ...
 
 Configurable AI-assisted pentesting and security research
 
 positional arguments:
-  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions}
+  {discover,scan,fuzz,full,report,costs,learning,history,record-outcome,validate,graph-sync,profiles,sessions,tools}
     discover            Find high-ROI bug bounty programs
     scan                Scan a specific target
     fuzz                Fuzz a binary target (experimental)
@@ -39,6 +39,7 @@ positional arguments:
     profiles            Inspect profiles and list mechanisms without starting
                         a run
     sessions            List saved interactive sessions
+    tools               Build the Docker image used by container tools
 
 options:
   -h, --help            show this help message and exit
@@ -69,7 +70,7 @@ options:
 
 ## discover
 
-Source: [commands/discover.py](../../commands/discover.py).
+Source: [fantasma/commands/discover.py](../../fantasma/commands/discover.py).
 
 ```text
 usage: fantasma discover [-h] [--top TOP] [--min-bounty MIN_BOUNTY]
@@ -83,7 +84,7 @@ options:
 
 ## scan
 
-Source: [commands/scan.py](../../commands/scan.py).
+Source: [fantasma/commands/scan.py](../../fantasma/commands/scan.py).
 
 ```text
 usage: fantasma scan [-h] --target TARGET
@@ -95,7 +96,7 @@ options:
 
 ## fuzz
 
-Source: [commands/fuzz.py](../../commands/fuzz.py).
+Source: [fantasma/commands/fuzz.py](../../fantasma/commands/fuzz.py).
 
 ```text
 usage: fantasma fuzz [-h] --binary BINARY --corpus CORPUS [--timeout TIMEOUT]
@@ -111,7 +112,7 @@ options:
 
 ## full
 
-Source: [commands/full.py](../../commands/full.py).
+Source: [fantasma/commands/full.py](../../fantasma/commands/full.py).
 
 ```text
 usage: fantasma full [-h] [--resume-session [ID]] [--diagnostics]
@@ -236,7 +237,7 @@ options:
 
 ## report
 
-Source: [commands/report.py](../../commands/report.py).
+Source: [fantasma/commands/report.py](../../fantasma/commands/report.py).
 
 ```text
 usage: fantasma report [-h] --findings FINDINGS
@@ -248,7 +249,7 @@ options:
 
 ## costs
 
-Source: [commands/costs.py](../../commands/costs.py).
+Source: [fantasma/commands/costs.py](../../fantasma/commands/costs.py).
 
 ```text
 usage: fantasma costs [-h]
@@ -259,7 +260,7 @@ options:
 
 ## learning
 
-Source: [commands/learning.py](../../commands/learning.py).
+Source: [fantasma/commands/learning.py](../../fantasma/commands/learning.py).
 
 ```text
 usage: fantasma learning [-h]
@@ -270,7 +271,7 @@ options:
 
 ## history
 
-Source: [commands/history.py](../../commands/history.py).
+Source: [fantasma/commands/history.py](../../fantasma/commands/history.py).
 
 ```text
 usage: fantasma history [-h] [--target TARGET]
@@ -282,7 +283,7 @@ options:
 
 ## record-outcome
 
-Source: [commands/record_outcome.py](../../commands/record_outcome.py).
+Source: [fantasma/commands/record_outcome.py](../../fantasma/commands/record_outcome.py).
 
 ```text
 usage: fantasma record-outcome [-h] --finding-id FINDING_ID [--accepted]
@@ -298,7 +299,7 @@ options:
 
 ## validate
 
-Source: [commands/validate.py](../../commands/validate.py).
+Source: [fantasma/commands/validate.py](../../fantasma/commands/validate.py).
 
 ```text
 usage: fantasma validate [-h] [--scan SCAN_ID] [--budget BUDGET]
@@ -326,7 +327,7 @@ options:
 
 ## graph-sync
 
-Source: [commands/graph_sync.py](../../commands/graph_sync.py).
+Source: [fantasma/commands/graph_sync.py](../../fantasma/commands/graph_sync.py).
 
 ```text
 usage: fantasma graph-sync [-h]
@@ -337,7 +338,7 @@ options:
 
 ## profiles
 
-Source: [commands/profiles.py](../../commands/profiles.py).
+Source: [fantasma/commands/profiles.py](../../fantasma/commands/profiles.py).
 
 ```text
 usage: fantasma profiles [-h] {inspect,mechanisms} [profile]
@@ -352,13 +353,29 @@ options:
 
 ## sessions
 
-Source: [commands/sessions.py](../../commands/sessions.py).
+Source: [fantasma/commands/sessions.py](../../fantasma/commands/sessions.py).
 
 ```text
 usage: fantasma sessions [-h]
 
 options:
   -h, --help  show this help message and exit
+```
+
+## tools
+
+Source: [fantasma/commands/tools.py](../../fantasma/commands/tools.py).
+
+```text
+usage: fantasma tools [-h] [--tag TAG] {build,dockerfile}
+
+positional arguments:
+  {build,dockerfile}  build: run docker build; dockerfile: print the bundled
+                      Dockerfile path
+
+options:
+  -h, --help          show this help message and exit
+  --tag TAG           Image tag (default: bugbounty-tools:latest)
 ```
 
 ## Offline profile tools

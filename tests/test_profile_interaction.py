@@ -3,9 +3,9 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from agents.messaging import MessageBus
-from agents.pipeline_console import PipelineConsole
-from profiles.loader import load_profile, parse_profile_toml
+from fantasma.agents.messaging import MessageBus
+from fantasma.agents.pipeline_console import PipelineConsole
+from fantasma.profiles.loader import load_profile, parse_profile_toml
 
 
 class ProfileInteractionTests(unittest.TestCase):
@@ -92,7 +92,7 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(console.pipeline.effective_budget, 2)
 
     async def test_cancelled_lab_worker_cannot_continue_after_stop(self):
-        from agents.pipeline import AgentPipeline
+        from fantasma.agents.pipeline import AgentPipeline
         pipeline = AgentPipeline.__new__(AgentPipeline)
         pipeline._check_pause_stop = AsyncMock(return_value=True)
         pipeline._stop_flag = False
@@ -103,11 +103,11 @@ class ConsoleTests(unittest.IsolatedAsyncioTestCase):
             await pipeline._execute_lab_worker(SimpleNamespace(execute=worker_result), None)
 
     async def test_cli_terminal_override_dispatches_lab_to_console(self):
-        from main import build_parser
-        from commands.full import run
+        from fantasma.main import build_parser
+        from fantasma.commands.full import run
         pipeline = Mock()
-        with patch('agents.pipeline.AgentPipeline', return_value=pipeline), \
-             patch('agents.pipeline_console.PipelineConsole') as console:
+        with patch('fantasma.agents.pipeline.AgentPipeline', return_value=pipeline), \
+             patch('fantasma.agents.pipeline_console.PipelineConsole') as console:
             console.return_value.run = AsyncMock()
             await run(build_parser().parse_args(['full', '--profile', 'lab', '--interaction', 'terminal']), None)
             console.assert_called_once()
@@ -127,12 +127,12 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(legacy.interaction.mode, 'batch')
 
     async def test_terminal_and_web_start_together(self):
-        from main import build_parser
-        from commands.full import run
+        from fantasma.main import build_parser
+        from fantasma.commands.full import run
         pipeline = Mock()
-        with patch('agents.pipeline.AgentPipeline', return_value=pipeline), \
-             patch('agents.pipeline_console.PipelineConsole') as console, \
-             patch('web.WebUI') as dashboard:
+        with patch('fantasma.agents.pipeline.AgentPipeline', return_value=pipeline), \
+             patch('fantasma.agents.pipeline_console.PipelineConsole') as console, \
+             patch('fantasma.web.WebUI') as dashboard:
             console.return_value.run = AsyncMock()
             dashboard.return_value.start = AsyncMock()
             dashboard.return_value.shutdown = AsyncMock()
@@ -142,16 +142,16 @@ class DashboardTests(unittest.IsolatedAsyncioTestCase):
             dashboard.return_value.shutdown.assert_awaited_once()
 
     async def test_pentester_accepts_web_flag(self):
-        from main import build_parser
-        from commands.full import run
-        with patch('agents.interactive.run_interactive', new_callable=AsyncMock) as interactive:
+        from fantasma.main import build_parser
+        from fantasma.commands.full import run
+        with patch('fantasma.agents.interactive.run_interactive', new_callable=AsyncMock) as interactive:
             await run(build_parser().parse_args(['full', '--web']), None)
             self.assertTrue(interactive.call_args.args[2].web)
 
     async def test_interactive_http_auth_and_shared_controls(self):
         from aiohttp.test_utils import TestClient, TestServer
-        from agents.interactive import InteractiveSession
-        from web.interactive import InteractiveWebUI
+        from fantasma.agents.interactive import InteractiveSession
+        from fantasma.web.interactive import InteractiveWebUI
         profile = load_profile('interactive')
         session = InteractiveSession(profile, profile.llm, SimpleNamespace(budget=1, dry_run=True), [], write=lambda text: None)
         ui = InteractiveWebUI(session)

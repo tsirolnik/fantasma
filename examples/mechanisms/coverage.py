@@ -1,5 +1,5 @@
 """A small, stateful mechanism; no registry modification required."""
-from memory.mechanisms import Mechanism, MechanismEffect
+from fantasma.memory.mechanisms import Mechanism, MechanismEffect
 
 
 class CoverageBonus(Mechanism):

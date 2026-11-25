@@ -1,6 +1,6 @@
 # Environment/settings reference
 
-Generated from [Settings](../../config.py) declarations without reading `.env`.
+Generated from [Settings](../../fantasma/config.py) declarations without reading `.env`.
 Regenerate with `python scripts/generate_reference.py`.
 
 Variables use uppercase field names. Process environment values override `.env`

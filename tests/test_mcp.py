@@ -4,10 +4,10 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from agents.mcp_runtime import MCPRuntime, attach_mcp_tools, tool_name, environment_refs
-from agents.tools import ToolRegistry
-from profiles.loader import parse_profile_toml, load_profile
-from profiles.mcp import MCPServer
+from fantasma.agents.mcp_runtime import MCPRuntime, attach_mcp_tools, tool_name, environment_refs
+from fantasma.agents.tools import ToolRegistry
+from fantasma.profiles.loader import parse_profile_toml, load_profile
+from fantasma.profiles.mcp import MCPServer
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -73,8 +73,8 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         from contextlib import asynccontextmanager
         from types import SimpleNamespace
         from unittest.mock import AsyncMock
-        from agents.tool_agent import ToolAgent
-        from agents.messaging import MessageBus
+        from fantasma.agents.tool_agent import ToolAgent
+        from fantasma.agents.messaging import MessageBus
         from mcp.types import Tool as RemoteTool
 
         remote = RemoteTool(name="inspect", inputSchema={"type": "object"})

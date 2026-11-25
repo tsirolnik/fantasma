@@ -2,17 +2,17 @@ import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from utils.terminal_activity import TerminalActivity, tool_label
+from fantasma.utils.terminal_activity import TerminalActivity, tool_label
 
 
 class ActivityTests(unittest.TestCase):
     def test_rotation_parallel_tools_and_reset(self):
         output = []
         activity = TerminalActivity(output.append)
-        with patch('utils.terminal_activity.time.monotonic', return_value=10):
+        with patch('fantasma.utils.terminal_activity.time.monotonic', return_value=10):
             activity.begin()
             first = activity.toolbar()
-        with patch('utils.terminal_activity.time.monotonic', return_value=15):
+        with patch('fantasma.utils.terminal_activity.time.monotonic', return_value=15):
             self.assertNotEqual(first, activity.toolbar())
         activity.tool_started('agent', 'http_fetch', {})
         activity.tool_started('agent', 'http_fetch', {})
@@ -39,7 +39,7 @@ class PromptTests(unittest.IsolatedAsyncioTestCase):
         from prompt_toolkit import PromptSession
         from prompt_toolkit.input import create_pipe_input
         from prompt_toolkit.output import DummyOutput
-        from agents.interactive import terminal_lines
+        from fantasma.agents.interactive import terminal_lines
         activity = TerminalActivity(lambda text: None)
         activity.begin()
         with create_pipe_input() as keyboard:

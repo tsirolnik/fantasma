@@ -1,10 +1,10 @@
 import asyncio
 import unittest
 from types import SimpleNamespace
-from agents.interactive import InteractiveSession, InteractivePentester
-from agents.messaging import MessageBus
-from memory.shared import SharedMemory
-from profiles.loader import load_profile
+from fantasma.agents.interactive import InteractiveSession, InteractivePentester
+from fantasma.agents.messaging import MessageBus
+from fantasma.memory.shared import SharedMemory
+from fantasma.profiles.loader import load_profile
 
 
 class RequestScopeTests(unittest.IsolatedAsyncioTestCase):

@@ -2,8 +2,8 @@ import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from agents.tools import create_search_tools, create_research_tools
-from utils.browser_search import search
+from fantasma.agents.tools import create_search_tools, create_research_tools
+from fantasma.utils.browser_search import search
 
 
 class SearchTests(unittest.IsolatedAsyncioTestCase):
@@ -30,16 +30,16 @@ class SearchTests(unittest.IsolatedAsyncioTestCase):
     async def test_tool_reuses_session_and_respects_browser_disabled(self):
         session = SimpleNamespace(search=AsyncMock(return_value={'status':'ok','results':[]}))
         tool = create_research_tools(session).get('web_search')
-        with patch('config.get_settings', return_value=SimpleNamespace(enable_browser=True)):
+        with patch('fantasma.config.get_settings', return_value=SimpleNamespace(enable_browser=True)):
             await tool.handler({'query': 'public docs', 'max_results': 3})
         session.search.assert_awaited_once_with('public docs', 3)
-        with patch('config.get_settings', return_value=SimpleNamespace(enable_browser=False)):
+        with patch('fantasma.config.get_settings', return_value=SimpleNamespace(enable_browser=False)):
             self.assertEqual((await tool.handler({'query':'public docs'}))['status'], 'unavailable')
         self.assertIsNotNone(create_research_tools().get('run_docker_tool'))
         self.assertNotIn('nuclei', create_research_tools().get('run_docker_tool').description.lower())
 
     async def test_real_chromium_extracts_local_fixtures_without_network(self):
-        from utils.browser import BrowserPool
+        from fantasma.utils.browser import BrowserPool
         pool = BrowserPool()
         await pool.start()
         try:
@@ -71,10 +71,10 @@ class SearchTests(unittest.IsolatedAsyncioTestCase):
             await pool.stop()
 
     async def test_public_search_is_available_without_target_scope(self):
-        from agents.interactive import InteractivePentester
-        from agents.messaging import MessageBus
-        from memory.shared import SharedMemory
-        from profiles.loader import load_profile
+        from fantasma.agents.interactive import InteractivePentester
+        from fantasma.agents.messaging import MessageBus
+        from fantasma.memory.shared import SharedMemory
+        from fantasma.profiles.loader import load_profile
         agent = InteractivePentester(agent_id='pentester', bus=MessageBus(), llm=None,
             shared_memory=SharedMemory(), methodology=load_profile('interactive').methodology)
         agent._allowed_domains = set()
